@@ -50,8 +50,8 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             return;
         }
 
-        ui             = data.uistrings     || {};
-        showmode       = data.showmode      || 'hover';
+        ui = data.uistrings || {};
+        showmode = data.showmode || 'hover';
         highlightcolor = data.highlightcolor || '#fff3cd';
 
         var strings = data.strings;
