@@ -33,16 +33,16 @@ jobs:
       matrix:
         include:
           - php: '8.2'
-            moodle-branch: MOODLE_52_STABLE
+            moodle-branch: MOODLE_502_STABLE
             database: pgsql
           - php: '8.3'
-            moodle-branch: MOODLE_52_STABLE
+            moodle-branch: MOODLE_502_STABLE
             database: pgsql
           - php: '8.2'
-            moodle-branch: MOODLE_51_STABLE
+            moodle-branch: MOODLE_501_STABLE
             database: pgsql
           - php: '8.3'
-            moodle-branch: MOODLE_51_STABLE
+            moodle-branch: MOODLE_501_STABLE
             database: pgsql
 
     steps:
