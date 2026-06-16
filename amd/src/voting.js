@@ -55,7 +55,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         highlightcolor = data.highlightcolor || '#fff3cd';
 
         var strings = data.strings;
-        var lang    = data.lang;
+        var lang = data.lang;
 
         if (!strings || strings.length === 0) {
             return;
