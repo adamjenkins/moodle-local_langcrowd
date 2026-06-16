@@ -46,7 +46,7 @@ $PAGE->set_title(get_string('report_approved', 'local_langcrowd'));
 $PAGE->set_heading(get_string('report_approved', 'local_langcrowd'));
 $PAGE->set_pagelayout('admin');
 
-// Handle unlock action.
+// Handle unlock action (works for both locked and pushed strings).
 if ($action === 'unlock' && $stringid && confirm_sesskey()) {
     $now = time();
     $DB->update_record('local_langcrowd_strings', (object)[
@@ -55,11 +55,12 @@ if ($action === 'unlock' && $stringid && confirm_sesskey()) {
         'votecount'    => 0,
         'timemodified' => $now,
     ]);
+    get_string_manager()->reset_caches();
     redirect($baseurl, get_string('status_pending', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
-// Build filter.
-$where     = "status = 'locked'";
+// Build filter — show both locked (admin-approved) and pushed (serving but still open for votes).
+$where     = "status IN ('locked', 'pushed')";
 $sqlparams = [];
 if ($lang) {
     $where .= ' AND lang = :lang';
@@ -134,6 +135,7 @@ if (empty($records)) {
         get_string('filter_language', 'local_langcrowd'),
         get_string('col_currentvalue', 'local_langcrowd'),
         get_string('col_votecount', 'local_langcrowd'),
+        get_string('col_status', 'local_langcrowd'),
         get_string('col_actions', 'local_langcrowd'),
     ];
     $table->data  = [];
@@ -146,12 +148,26 @@ if (empty($records)) {
             'lang'     => $lang,
             'component' => $component,
         ]);
+        if ($rec->status === 'pushed') {
+            $statusbadge = html_writer::tag(
+                'span',
+                get_string('status_pushed', 'local_langcrowd'),
+                ['class' => 'badge bg-primary']
+            );
+        } else {
+            $statusbadge = html_writer::tag(
+                'span',
+                get_string('status_locked', 'local_langcrowd'),
+                ['class' => 'badge bg-success']
+            );
+        }
         $table->data[] = [
             s($rec->component),
             s($rec->stringkey),
             s($rec->lang),
             s($rec->currentvalue),
             $rec->votecount,
+            $statusbadge,
             html_writer::link(
                 $unlockurl,
                 get_string('action_unlock', 'local_langcrowd'),

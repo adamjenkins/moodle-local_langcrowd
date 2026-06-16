@@ -1,17 +1,19 @@
 # local_langcrowd — Language Crowdsourcing for Moodle
 
-A Moodle 5.x local plugin that lets your users collaboratively build and vote on language pack translations directly inside the Moodle interface.
+A Moodle 5.2+ local plugin that lets your users collaboratively build and vote on language pack translations directly inside the Moodle interface — no external tools required.
 
 ## How it works
 
-When crowdsourcing is active, every language string rendered on screen is annotated with two small inline buttons:
+When crowdsourcing is active, every language string rendered on screen gets two small inline badge buttons:
 
-- **✓ (tick)** — the user approves the current translation. Once a string reaches the configured vote threshold it is locked and exported as part of the language pack.
+- **✓ (tick)** — the user approves the current translation. Once a string reaches the configured vote threshold it is locked and served immediately as the active translation.
 - **✗ (cross)** — the user disagrees with the current translation and is prompted to type an alternative. Their suggestion is queued for admin review.
 
-Buttons disappear for a given string once a user has voted on it, so they are never shown the same string twice.
+After voting on a string, the buttons disappear for that user so they are never shown the same string twice.
 
-The language being built is determined by the Moodle session language — switching the interface language switches the target translation language.
+The target language is the user's current Moodle interface language. Switching interface language switches the translation target automatically.
+
+Buttons can be restricted to specific roles and to specific installed language packs via admin settings.
 
 ---
 
@@ -28,13 +30,13 @@ The language being built is determined by the Moodle session language — switch
 ### 1. Copy the plugin
 
 ```bash
-cp -r local_langcrowd /path/to/moodle/public/local/langcrowd
+cp -r moodle-local_langcrowd /path/to/moodle/local/langcrowd
 ```
 
 Or clone directly:
 
 ```bash
-cd /path/to/moodle/public/local
+cd /path/to/moodle/local
 git clone https://github.com/yourorg/moodle-local_langcrowd langcrowd
 ```
 
@@ -46,7 +48,7 @@ Open your Moodle `config.php` and add the following line **before** the `require
 $CFG->customstringmanager = '\local_langcrowd\string_manager';
 ```
 
-This is the mechanism that annotates rendered strings with the data attributes the JavaScript needs to attach voting buttons. The plugin will display a warning on its settings page if this line is missing.
+This intercepts every `get_string()` call during web requests so the footer hook knows which strings appear on each page. The plugin displays a warning on its settings page if this line is missing.
 
 ### 3. Run the Moodle upgrade
 
@@ -64,27 +66,38 @@ Go to **Site administration → Language → Language Crowdsourcing** and tick *
 
 ## Admin settings
 
+Navigate to **Site administration → Language → Language Crowdsourcing → Settings**.
+
 | Setting | Description | Default |
 |---|---|---|
-| Enable crowdsourcing | Master on/off switch. Disabling hides all buttons and stops string annotation without removing the config.php line. | Off |
-| Approval threshold | Number of approve votes required to lock a string into the language pack. | 10 |
+| Enable crowdsourcing | Master on/off switch. | Off |
+| Show admin link in navbar | Adds a "Language Crowdsourcing" link to the primary nav (admins only). | Off |
+| Approval threshold | Approve-votes needed to lock a string in. | 10 |
+| Max strings per page | Cap on annotated strings per page. Raise for complex admin pages. | 5000 |
+| Button display mode | `Hover` hides buttons until the user mouses over a string; `Always` keeps them visible. | Hover |
+| String highlight colour | Background colour applied to a string on button hover. | `#fff3cd` |
+| Roles allowed to vote | Restrict voting to specific roles. Empty = all logged-in users. | (all) |
+| Languages to enable crowdsourcing for | Restrict the overlay to specific installed language packs. Empty = all languages. | (all) |
 
 ---
 
 ## Admin reports
 
-Both reports are linked from the settings page and are accessible at **Site administration → Language → Language Crowdsourcing**.
+Accessible at **Site administration → Language → Language Crowdsourcing**.
 
 ### Approved Strings
 
-Lists all strings whose vote count has reached the threshold (status: *locked*). Filterable by component and language. Each row has an **Unlock** action to reset the string back to *pending* if a correction is needed.
+Lists all strings that are actively being served — both *locked* (admin-approved or vote-threshold reached) and *pushed* (live but still open for voting). Filterable by component and language. A colour-coded status badge distinguishes the two states. Each row has an **Unlock** action to revert the string to *pending* and stop serving it.
+
+Both locked and pushed strings are **served immediately** as the active translation without requiring an export step — the custom string manager intercepts `get_string()` and returns the stored value.
 
 ### User Suggestions
 
 Lists all pending alternative translations submitted by users. Each row shows the current translation alongside the suggestion and who submitted it. Available actions:
 
-- **Promote to active** — replaces the string's current translation with the suggestion and resets the vote count to zero so the community can re-vote on the improved text.
-- **Reject** — dismisses the suggestion.
+- **Approve** — admin-locks the string immediately (*locked* status), resets the vote count to zero, and purges caches. Use when you are confident the suggestion is correct and want no further community input.
+- **Push to language pack** — makes the suggestion live right now (*pushed* status) while keeping the string open for community voting. Votes reset to zero so users vote fresh on the new value. Once votes cross the threshold the string locks automatically. Use when you want the improvement served immediately but still want community validation.
+- **Reject** — dismisses the suggestion without changing the active translation.
 
 ---
 
@@ -116,12 +129,35 @@ Install the zip via **Site administration → Language → Language packs → In
 
 ## Scheduled task
 
-A task named **Aggregate crowdsourced votes** runs hourly to recalculate vote totals and apply the threshold lock as a safety net. It can be triggered manually:
+A task named **Aggregate crowdsourced votes** runs hourly to recalculate vote totals and apply the threshold lock. It can be triggered manually:
 
 ```bash
 sudo -u www-data php admin/cli/scheduled_task.php \
     --execute='\local_langcrowd\task\aggregate_votes'
 ```
+
+---
+
+## Shipped language packs
+
+The plugin ships with translations for:
+
+| Language | Code |
+|---|---|
+| English | `en` |
+| Thai | `th` |
+
+---
+
+## Architecture notes
+
+- **Custom string manager** (`classes/string_manager.php`): extends `core_string_manager_standard`. Intercepts `get_string()` to (a) serve promoted/locked translations from DB without requiring an export, and (b) collect plain-text strings for the footer hook. Filters out parameterised strings, HTML-containing strings, strings with embedded newlines, and strings shorter than 3 characters.
+
+- **Footer hook** (`classes/hook_callbacks.php`): injects `window.langcrowdInit` JSON and schedules the `local_langcrowd/voting` AMD call. Respects enabled/role/language filters before injecting.
+
+- **AMD voting module** (`amd/src/voting.js`): DOM TreeWalker scans text nodes and calls `get_string_ids` web service. Strings inside `<a>` links are handled by wrapping the entire anchor element so buttons live outside it (avoids Moodle's capture-phase link navigation). A MutationObserver re-annotates content added by reactive frameworks. Activity names and form controls are excluded.
+
+- **Web services**: three AJAX endpoints — `get_string_ids` (register and look up strings), `submit_vote`, `submit_suggestion` — all require login and appropriate capabilities.
 
 ---
 
@@ -137,15 +173,26 @@ MOODLE_DIR=/path/to/moodle
 ../moodle-plugin-ci/bin/moodle-plugin-ci validate -m "$MOODLE_DIR" ./
 ../moodle-plugin-ci/bin/moodle-plugin-ci codechecker ./
 ../moodle-plugin-ci/bin/moodle-plugin-ci phpmd ./
-../moodle-plugin-ci/bin/moodle-plugin-ci savepoints -m "$MOODLE_DIR" ./  # if db/upgrade.php exists
+../moodle-plugin-ci/bin/moodle-plugin-ci savepoints ./
 ```
 
 ### Running unit tests
 
 ```bash
+cd "$MOODLE_DIR"
 sudo -u www-data php admin/cli/phpunit.php --init
 sudo -u www-data vendor/bin/phpunit --testsuite local_langcrowd
 ```
+
+---
+
+## Security
+
+- All admin actions are CSRF-protected via Moodle's `confirm_sesskey()`.
+- All SQL uses parameterised queries via the Moodle DML API.
+- All user-supplied content displayed in reports is escaped with `s()`.
+- External functions validate parameters with Moodle type constants and require appropriate capabilities.
+- Suggestion text is cleaned as `PARAM_TEXT` (strips HTML tags) before storage.
 
 ---
 

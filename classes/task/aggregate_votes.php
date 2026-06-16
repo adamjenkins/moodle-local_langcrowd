@@ -50,7 +50,9 @@ class aggregate_votes extends \core\task\scheduled_task {
         }
 
         $now     = time();
-        $strings = $DB->get_records('local_langcrowd_strings', ['status' => 'pending']);
+        $strings = $DB->get_records_sql(
+            "SELECT * FROM {local_langcrowd_strings} WHERE status IN ('pending', 'pushed')"
+        );
 
         foreach ($strings as $str) {
             $votecount = (int)$DB->count_records_select(
@@ -59,7 +61,8 @@ class aggregate_votes extends \core\task\scheduled_task {
                 [$str->id]
             );
 
-            $newstatus = ($votecount >= $threshold) ? 'locked' : 'pending';
+            // Preserve 'pushed' status when below threshold so the translation keeps being served.
+            $newstatus = ($votecount >= $threshold) ? 'locked' : $str->status;
 
             if ($votecount !== (int)$str->votecount || $newstatus !== $str->status) {
                 $DB->update_record('local_langcrowd_strings', (object)[

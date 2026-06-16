@@ -81,11 +81,11 @@ class string_manager extends \core_string_manager_standard {
         }
         global $DB;
         try {
-            $records = $DB->get_records(
-                'local_langcrowd_strings',
-                ['lang' => current_language(), 'status' => 'locked'],
-                '',
-                'component, stringkey, currentvalue, sourcevalue'
+            $records = $DB->get_records_sql(
+                "SELECT component, stringkey, currentvalue, sourcevalue
+                   FROM {local_langcrowd_strings}
+                  WHERE lang = ? AND status IN ('locked', 'pushed')",
+                [current_language()]
             );
             foreach ($records as $rec) {
                 // Only override if the currentvalue actually differs from the source.

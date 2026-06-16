@@ -106,7 +106,12 @@ class submit_vote extends external_api {
         );
 
         $threshold = (int)get_config('local_langcrowd', 'threshold');
-        $newstatus = ($threshold > 0 && $votecount >= $threshold) ? 'locked' : 'pending';
+        if ($threshold > 0 && $votecount >= $threshold) {
+            $newstatus = 'locked';
+        } else {
+            // Preserve 'pushed' status so the translation keeps being served while voting continues.
+            $newstatus = ($strrecord->status === 'pushed') ? 'pushed' : 'pending';
+        }
 
         $DB->update_record('local_langcrowd_strings', (object)[
             'id'           => $params['stringid'],

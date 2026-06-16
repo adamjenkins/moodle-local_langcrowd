@@ -77,14 +77,17 @@ $string['col_datelocked'] = 'วันที่ล็อก';
 $string['col_submittedby'] = 'ส่งโดย';
 $string['col_date'] = 'วันที่';
 $string['col_actions'] = 'การดำเนินการ';
+$string['col_status'] = 'สถานะ';
 $string['col_suggestion'] = 'การแปลที่เสนอ';
 
 // Report actions.
 $string['action_unlock'] = 'ปลดล็อก';
 $string['action_promote'] = 'อนุมัติ';
+$string['action_push'] = 'ส่งเข้าชุดภาษา';
 $string['action_reject'] = 'ปฏิเสธ';
 $string['action_unlock_confirm'] = 'คุณแน่ใจหรือไม่ว่าต้องการปลดล็อกสตริงนี้และรีเซ็ตจำนวนคะแนน?';
 $string['action_promote_confirm'] = 'คุณแน่ใจหรือไม่ว่าต้องการอนุมัติข้อเสนอแนะนี้? มันจะกลายเป็นการแปลที่ใช้งานทันทีและรีเซ็ตคะแนนเป็นศูนย์';
+$string['action_push_confirm'] = 'ส่งข้อเสนอแนะนี้เข้าชุดภาษาที่ใช้งานอยู่? มันจะถูกใช้เป็นคำแปลทันทีในขณะที่การลงคะแนนของชุมชนยังดำเนินต่อ มันจะล็อกโดยอัตโนมัติเมื่อถึงเกณฑ์คะแนน';
 $string['action_reject_confirm'] = 'คุณแน่ใจหรือไม่ว่าต้องการปฏิเสธข้อเสนอแนะนี้?';
 
 // Export page.
@@ -111,6 +114,7 @@ $string['suggestion_thanks'] = 'ขอบคุณสำหรับข้อเ
 // Status labels.
 $string['status_pending'] = 'รอดำเนินการ';
 $string['status_locked'] = 'ล็อกแล้ว';
+$string['status_pushed'] = 'ส่งเข้าชุดภาษาแล้ว';
 $string['status_promoted'] = 'ส่งเสริมแล้ว';
 $string['status_rejected'] = 'ปฏิเสธแล้ว';
 

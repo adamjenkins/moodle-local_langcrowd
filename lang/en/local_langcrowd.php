@@ -77,14 +77,17 @@ $string['col_datelocked'] = 'Date locked';
 $string['col_submittedby'] = 'Submitted by';
 $string['col_date'] = 'Date';
 $string['col_actions'] = 'Actions';
+$string['col_status'] = 'Status';
 $string['col_suggestion'] = 'Suggested translation';
 
 // Report actions.
 $string['action_unlock'] = 'Unlock';
 $string['action_promote'] = 'Approve';
+$string['action_push'] = 'Push to language pack';
 $string['action_reject'] = 'Reject';
 $string['action_unlock_confirm'] = 'Are you sure you want to unlock this string and reset its vote count?';
 $string['action_promote_confirm'] = 'Are you sure you want to approve this suggestion? It will become the active translation immediately and reset votes to zero.';
+$string['action_push_confirm'] = 'Push this suggestion to the active language pack? It will be served as the translation immediately while community voting continues. It will lock automatically once the vote threshold is reached.';
 $string['action_reject_confirm'] = 'Are you sure you want to reject this suggestion?';
 
 // Export page.
@@ -111,6 +114,7 @@ $string['suggestion_thanks'] = 'Thank you for your suggestion.';
 // Status labels.
 $string['status_pending'] = 'Pending';
 $string['status_locked'] = 'Locked';
+$string['status_pushed'] = 'Pushed';
 $string['status_promoted'] = 'Promoted';
 $string['status_rejected'] = 'Rejected';
 

@@ -46,26 +46,40 @@ $PAGE->set_title(get_string('report_suggestions', 'local_langcrowd'));
 $PAGE->set_heading(get_string('report_suggestions', 'local_langcrowd'));
 $PAGE->set_pagelayout('admin');
 
-// Handle promote / reject actions.
+// Handle promote / push / reject actions.
 if ($suggestionid && confirm_sesskey()) {
     $suggestion = $DB->get_record('local_langcrowd_suggestions', ['id' => $suggestionid], '*', MUST_EXIST);
     $now        = time();
 
     if ($action === 'promote') {
-        // Replace the string's currentvalue and reset the vote cycle.
+        // Admin-approve: replace currentvalue, lock the string, reset the vote cycle.
         $DB->update_record('local_langcrowd_strings', (object)[
             'id'           => $suggestion->stringid,
             'currentvalue' => $suggestion->suggestion,
             'votecount'    => 0,
-            'status'       => 'pending',
+            'status'       => 'locked',
             'timemodified' => $now,
         ]);
-        // Clear all existing votes so users can re-vote on the new value.
+        // Clear all existing votes so users can re-vote if the string is ever unlocked.
         $DB->delete_records('local_langcrowd_votes', ['stringid' => $suggestion->stringid]);
         $DB->set_field('local_langcrowd_suggestions', 'status', 'promoted', ['id' => $suggestionid]);
-        // Purge string caches so any installed language customisations pick up cleanly.
+        // Purge string caches so the new value is served immediately.
         get_string_manager()->reset_caches();
         redirect($baseurl, get_string('status_promoted', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
+    } else if ($action === 'push') {
+        // Push: serve the suggestion immediately but keep the string open for voting.
+        // Votes are reset so users cast fresh votes on the new value.
+        $DB->update_record('local_langcrowd_strings', (object)[
+            'id'           => $suggestion->stringid,
+            'currentvalue' => $suggestion->suggestion,
+            'votecount'    => 0,
+            'status'       => 'pushed',
+            'timemodified' => $now,
+        ]);
+        $DB->delete_records('local_langcrowd_votes', ['stringid' => $suggestion->stringid]);
+        $DB->set_field('local_langcrowd_suggestions', 'status', 'promoted', ['id' => $suggestionid]);
+        get_string_manager()->reset_caches();
+        redirect($baseurl, get_string('status_pushed', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
     } else if ($action === 'reject') {
         $DB->set_field('local_langcrowd_suggestions', 'status', 'rejected', ['id' => $suggestionid]);
         $DB->set_field('local_langcrowd_suggestions', 'timemodified', $now, ['id' => $suggestionid]);
@@ -170,6 +184,13 @@ if (empty($records)) {
             'lang'         => $lang,
             'component'    => $component,
         ]);
+        $pushurl = new moodle_url('/local/langcrowd/report_suggestions.php', [
+            'action'       => 'push',
+            'suggestionid' => $rec->id,
+            'sesskey'      => sesskey(),
+            'lang'         => $lang,
+            'component'    => $component,
+        ]);
         $rejecturl = new moodle_url('/local/langcrowd/report_suggestions.php', [
             'action'       => 'reject',
             'suggestionid' => $rec->id,
@@ -187,6 +208,15 @@ if (empty($records)) {
                 'local_langcrowd'
             )) . ')']
         ) .
+            html_writer::link(
+                $pushurl,
+                get_string('action_push', 'local_langcrowd'),
+                ['class' => 'btn btn-sm btn-primary me-1',
+                'onclick' => 'return confirm(' . json_encode(get_string(
+                    'action_push_confirm',
+                    'local_langcrowd'
+                )) . ')']
+            ) .
             html_writer::link(
                 $rejecturl,
                 get_string('action_reject', 'local_langcrowd'),
