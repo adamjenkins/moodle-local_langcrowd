@@ -44,7 +44,7 @@ class hook_callbacks {
         }
 
         $allowedroles = get_config('local_langcrowd', 'allowed_roles');
-        if (!empty($allowedroles)) {
+        if (!empty($allowedroles) && !is_siteadmin()) {
             $roleids = explode(',', $allowedroles);
             [$insql, $params] = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED);
             $params['userid'] = $USER->id;
