@@ -32,9 +32,9 @@ if ($hassiteconfig) {
     $ADMIN->add('local_langcrowd_cat', $settings);
 
     $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
-        'local_langcrowd_report_approved',
-        get_string('report_approved', 'local_langcrowd'),
-        new moodle_url('/local/langcrowd/report_approved.php'),
+        'local_langcrowd_report_voting',
+        get_string('report_voting', 'local_langcrowd'),
+        new moodle_url('/local/langcrowd/report_voting.php'),
         'local/langcrowd:admin'
     ));
     $ADMIN->add('local_langcrowd_cat', new admin_externalpage(

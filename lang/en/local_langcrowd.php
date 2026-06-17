@@ -24,13 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['action_lock'] = 'Lock';
 $string['action_promote'] = 'Approve';
 $string['action_promote_confirm'] = 'Are you sure you want to approve this suggestion? It will become the active translation immediately and reset votes to zero.';
 $string['action_push'] = 'Push to language pack';
 $string['action_push_confirm'] = 'Push this suggestion to the active language pack? It will be served as the translation immediately while community voting continues. It will lock automatically once the vote threshold is reached.';
 $string['action_reject'] = 'Reject';
 $string['action_reject_confirm'] = 'Are you sure you want to reject this suggestion?';
-$string['action_unlock'] = 'Unlock';
+$string['action_unlock'] = 'Remove';
 $string['action_unlock_confirm'] = 'Are you sure you want to unlock this string and reset its vote count?';
 $string['btn_approve'] = 'Approve this translation';
 $string['btn_suggest'] = 'Suggest an alternative';
@@ -58,6 +59,8 @@ $string['filter_all'] = 'All';
 $string['filter_apply'] = 'Apply filters';
 $string['filter_component'] = 'Component';
 $string['filter_language'] = 'Language';
+$string['filter_showzero'] = 'Include strings with no votes';
+$string['filter_status'] = 'Status';
 $string['modal_cancel'] = 'Cancel';
 $string['modal_original_label'] = 'Current translation';
 $string['modal_submit'] = 'Submit suggestion';
@@ -75,6 +78,7 @@ $string['privacy:metadata:local_langcrowd_votes:userid'] = 'The ID of the user w
 $string['privacy:metadata:local_langcrowd_votes:vote'] = 'The vote value: 1 for approve, -1 for reject.';
 $string['report_approved'] = 'Approved Strings';
 $string['report_suggestions'] = 'User Suggestions';
+$string['report_voting'] = 'Voting Report';
 $string['settings'] = 'Language Crowdsourcing Settings';
 $string['settings_allowed_langs'] = 'Languages to enable crowdsourcing for';
 $string['settings_allowed_langs_desc'] = 'Select which installed language packs the voting overlay should be active for. Leave empty to enable for all languages. Users whose interface language is not in this list will not see voting buttons.';

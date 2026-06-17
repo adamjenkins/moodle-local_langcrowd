@@ -82,7 +82,7 @@ class string_manager extends \core_string_manager_standard {
         global $DB;
         try {
             $records = $DB->get_records_sql(
-                "SELECT component, stringkey, currentvalue, sourcevalue
+                "SELECT id, component, stringkey, currentvalue, sourcevalue
                    FROM {local_langcrowd_strings}
                   WHERE lang = ? AND status IN ('locked', 'pushed')",
                 [current_language()]
