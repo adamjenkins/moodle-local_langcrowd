@@ -85,6 +85,13 @@ if ($hassiteconfig) {
             0
         ));
 
+        $settings->add(new admin_setting_configcheckbox(
+            'local_langcrowd/adminvote_locks',
+            get_string('settings_adminvote_locks', 'local_langcrowd'),
+            get_string('settings_adminvote_locks_desc', 'local_langcrowd'),
+            0
+        ));
+
         $settings->add(new admin_setting_configtext(
             'local_langcrowd/threshold',
             get_string('settings_threshold', 'local_langcrowd'),

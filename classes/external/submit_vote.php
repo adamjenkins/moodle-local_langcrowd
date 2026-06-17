@@ -105,8 +105,12 @@ class submit_vote extends external_api {
             [$params['stringid']]
         );
 
-        $threshold = (int)get_config('local_langcrowd', 'threshold');
-        if ($threshold > 0 && $votecount >= $threshold) {
+        $threshold  = (int)get_config('local_langcrowd', 'threshold');
+        $adminlocks = (bool)get_config('local_langcrowd', 'adminvote_locks');
+
+        if ($params['vote'] === 1 && $adminlocks && is_siteadmin()) {
+            $newstatus = 'locked';
+        } else if ($threshold > 0 && $votecount >= $threshold) {
             $newstatus = 'locked';
         } else {
             // Preserve 'pushed' status so the translation keeps being served while voting continues.
