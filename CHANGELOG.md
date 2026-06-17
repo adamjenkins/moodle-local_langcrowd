@@ -7,6 +7,34 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.2.0] — 2026-06-17
+
+### Added
+
+- **Voting Report** (`report_voting.php`) replaces the Approved Strings report. Shows strings across all three statuses — *Pending*, *Locked*, and *Pushed* — in a single view.
+- **Sortable columns** on the Voting Report: click any column header to sort ascending; click again to reverse. Current sort direction is indicated by ▲/▼. Sort is preserved when changing filters.
+- **Status filter** on the Voting Report: filter to Pending, Locked, or Pushed, or view all at once.
+- **"Include strings with no votes" checkbox** on the Voting Report. By default, strings with `votecount = 0` are hidden to keep the view focused on active voting activity. Check the box to show all strings.
+- **Lock action** on the Voting Report: admins can manually lock any *Pending* string without waiting for the vote threshold, giving an immediate admin override.
+- **Thai translations** for all new strings: `action_lock`, `filter_showzero`, `filter_status`, `report_voting`.
+
+### Changed
+
+- **"Approved Strings" report renamed to "Voting Report"** in the admin menu. The old URL (`report_approved.php`) redirects automatically.
+- **"Unlock" button renamed to "Remove"** on the Voting Report to better describe reverting a string to *Pending*.
+
+### Fixed
+
+- **Duplicate-component error** (`Did you remember to make the first column something unique?`) when two or more strings from the same component were locked or pushed. The `load_promoted_strings` query now selects `id` as the first column so Moodle keys the result array by primary key rather than by `component`.
+
+### Internal
+
+- **Eliminated N+1 query in `aggregate_votes` task.** Previously the task ran one `count_records_select` per pending/pushed string (up to thousands per cron run). Now a single LEFT JOIN with `GROUP BY` fetches all vote counts in one query.
+- **Lang string files sorted alphabetically** in both `en` and `th`; new strings (`filter_showzero`, `filter_status`, `report_voting`) inserted in correct position.
+- All CI checks pass: `phplint`, `validate`, `codechecker` (0 errors), `phpmd`.
+
+---
+
 ## [0.1.1] — 2026-06-16
 
 ### Added

@@ -85,9 +85,23 @@ Navigate to **Site administration → Language → Language Crowdsourcing → Se
 
 Accessible at **Site administration → Language → Language Crowdsourcing**.
 
-### Approved Strings
+### Voting Report
 
-Lists all strings that are actively being served — both *locked* (admin-approved or vote-threshold reached) and *pushed* (live but still open for voting). Filterable by component and language. A colour-coded status badge distinguishes the two states. Each row has an **Unlock** action to revert the string to *pending* and stop serving it.
+Shows all strings across the three active statuses in one view:
+
+| Status | Badge | Meaning |
+|---|---|---|
+| Pending | grey | Seen by users and open for voting; not yet promoted. |
+| Pushed | blue | Suggestion accepted by admin and served immediately; still open for community voting. |
+| Locked | green | Locked in as the active translation (admin override or vote threshold reached). |
+
+**Filters:** Language, Component, Status, and an *Include strings with no votes* checkbox (hidden by default so the view focuses on strings with voting activity).
+
+**Sortable columns:** click any column header to sort; click again to reverse direction.
+
+**Actions:**
+- **Lock** (Pending rows) — admin override that locks the string immediately without waiting for the vote threshold.
+- **Remove** (Locked / Pushed rows) — reverts the string to *Pending*, resets the vote count to zero, and stops serving it as the active translation.
 
 Both locked and pushed strings are **served immediately** as the active translation without requiring an export step — the custom string manager intercepts `get_string()` and returns the stored value.
 
