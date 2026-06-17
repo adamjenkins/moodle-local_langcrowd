@@ -7,6 +7,14 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.2.1] — 2026-06-17
+
+### Added
+
+- **Admin approve vote locks immediately** setting (off by default). When enabled, an approve vote cast by a site administrator locks the string on the spot, bypassing the configured vote threshold. Reject votes and non-admin users are unaffected.
+
+---
+
 ## [0.2.0] — 2026-06-17
 
 ### Added

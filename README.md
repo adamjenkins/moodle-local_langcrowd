@@ -72,6 +72,7 @@ Navigate to **Site administration → Language → Language Crowdsourcing → Se
 |---|---|---|
 | Enable crowdsourcing | Master on/off switch. | Off |
 | Show admin link in navbar | Adds a "Language Crowdsourcing" link to the primary nav (admins only). | Off |
+| Admin approve vote locks immediately | When enabled, an approve vote from a site administrator locks the string at once, bypassing the vote threshold. Reject votes and non-admin voters are unaffected. | Off |
 | Approval threshold | Approve-votes needed to lock a string in. | 10 |
 | Max strings per page | Cap on annotated strings per page. Raise for complex admin pages. | 5000 |
 | Button display mode | `Hover` hides buttons until the user mouses over a string; `Always` keeps them visible. | Hover |
