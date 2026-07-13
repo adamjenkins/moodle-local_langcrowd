@@ -55,7 +55,7 @@ define([
     /** Whether translate mode is currently on. */
     var active = false;
 
-    /** sessionStorage key remembering the toggle state across pages. */
+    /** Session-storage key remembering the toggle state across pages. */
     var STORAGE_KEY = 'langcrowd-active';
 
     /**
@@ -428,6 +428,32 @@ define([
     }
 
     /**
+     * Sends the suggestion typed into the modal, then closes it.
+     *
+     * @param {Object}  modal The core/modal instance.
+     * @param {Object}  info  String record.
+     * @param {Element} wrap  The annotation wrapper.
+     */
+    function submitSuggestion(modal, info, wrap) {
+        var textarea = modal.getRoot()[0].querySelector('#lc-suggestion');
+        var suggestion = (textarea.value || '').trim();
+        if (!suggestion) {
+            return;
+        }
+        Ajax.call([{
+            methodname: 'local_langcrowd_submit_suggestion',
+            args: {stringid: info.stringid, suggestion: suggestion},
+        }])[0].then(function(result) {
+            if (result.success) {
+                clearWrap(wrap);
+                showUndo(wrap);
+            }
+            modal.hide();
+            return null;
+        }).catch(Notification.exception);
+    }
+
+    /**
      * Opens the suggestion dialog (core/modal) for a string.
      *
      * @param {Object}  info         String record.
@@ -457,22 +483,7 @@ define([
 
             modal.getRoot().on(ModalEvents.save, function(e) {
                 e.preventDefault();
-                var textarea = modal.getRoot()[0].querySelector('#lc-suggestion');
-                var suggestion = (textarea.value || '').trim();
-                if (!suggestion) {
-                    return;
-                }
-                Ajax.call([{
-                    methodname: 'local_langcrowd_submit_suggestion',
-                    args: {stringid: info.stringid, suggestion: suggestion},
-                }])[0].then(function(result) {
-                    if (result.success) {
-                        clearWrap(wrap);
-                        showUndo(wrap);
-                    }
-                    modal.hide();
-                    return null;
-                }).catch(Notification.exception);
+                submitSuggestion(modal, info, wrap);
             });
 
             modal.show();
