@@ -86,6 +86,7 @@ Crowdsourcing**.
 | Setting | What it does |
 |---|---|
 | Enable crowdsourcing | Master on/off switch. |
+| Lock translate mode on | Hides the floating "Improve translations" toggle and keeps the overlay always on for everyone who can use it (instead of each user turning it on themselves). |
 | Show admin link in navbar | Adds a shortcut to the plugin in the top navigation (admins only). |
 | Admin approve vote locks immediately | If on, an approve vote by a site admin locks the string at once. |
 | Approval threshold | How many approve votes lock a string in (default 10). |

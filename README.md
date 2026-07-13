@@ -78,6 +78,7 @@ Navigate to **Site administration → Language → Language Crowdsourcing → Se
 | Setting | Description | Default |
 |---|---|---|
 | Enable crowdsourcing | Master on/off switch. | Off |
+| Lock translate mode on | Hides the floating "Improve translations" toggle and keeps the overlay always on for everyone who can use it. | Off |
 | Show admin link in navbar | Adds a "Language Crowdsourcing" link to the primary nav (admins only). | Off |
 | Admin approve vote locks immediately | When enabled, an approve vote from a site administrator locks the string at once, bypassing the vote threshold. Reject votes and non-admin voters are unaffected. | Off |
 | Approval threshold | Approve-votes needed to lock a string in. | 10 |

@@ -78,6 +78,13 @@ define([
         }
 
         injectStyles();
+
+        // Master switch: when forced on, the overlay is always active and no toggle is shown.
+        if (data.forceon) {
+            setActive(true);
+            return;
+        }
+
         createToggle();
 
         // Restore the previous session's choice.

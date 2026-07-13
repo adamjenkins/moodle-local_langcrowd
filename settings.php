@@ -114,6 +114,13 @@ if ($hassiteconfig) {
             PARAM_INT
         ));
 
+        $settings->add(new admin_setting_configcheckbox(
+            'local_langcrowd/forcetranslatemode',
+            get_string('settings_forcetranslate', 'local_langcrowd'),
+            get_string('settings_forcetranslate_desc', 'local_langcrowd'),
+            0
+        ));
+
         $settings->add(new admin_setting_configselect(
             'local_langcrowd/showmode',
             get_string('settings_showmode', 'local_langcrowd'),

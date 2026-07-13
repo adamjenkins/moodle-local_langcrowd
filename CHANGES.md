@@ -36,6 +36,8 @@ purely so existing sites are offered the update; no upgrade step is required.
 
 - **Component filter** setting — restrict the overlay to selected components (empty = all),
   enforced server-side; the Export page pre-selects those components.
+- **"Lock translate mode on" setting** — hides the opt-in toggle and keeps the overlay
+  always on for everyone who can use it.
 - **Undo a vote** — a short-lived undo affordance after voting (`submit_vote` accepts `0` to withdraw).
 - **Approval progress** shown in the approve button's tooltip (e.g. "5/10 approvals").
 - **Touch support** — always-visible buttons on devices without hover.

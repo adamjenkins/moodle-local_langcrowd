@@ -66,6 +66,7 @@ class hook_callbacks {
             'showmode'       => get_config('local_langcrowd', 'showmode') ?: 'hover',
             'highlightcolor' => get_config('local_langcrowd', 'highlightcolor') ?: '#fff3cd',
             'threshold'      => (int)get_config('local_langcrowd', 'threshold'),
+            'forceon'        => (bool)get_config('local_langcrowd', 'forcetranslatemode'),
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 
         // Set the global before RequireJS loads (timing-safe: assignment needs no AMD).

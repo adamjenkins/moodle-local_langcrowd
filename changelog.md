@@ -54,6 +54,8 @@ changes; `version.php` is bumped so existing installs receive the update.
 - **Opt-in "translate mode".** A floating toggle turns the voting buttons on only when the
   user wants them, instead of annotating every page automatically. Off by default; the
   choice persists across pages. Strings are only registered when the user activates it.
+- **"Lock translate mode on" setting** — hides the toggle and keeps the overlay always on
+  for everyone who can use it (for sites that want crowdsourcing always active).
 - **Touch support.** On touch devices (no hover) the buttons default to always-visible.
 - **Undo a vote.** After voting, a short-lived "Undo" affordance withdraws the vote
   (`submit_vote` now accepts `0` to withdraw).
