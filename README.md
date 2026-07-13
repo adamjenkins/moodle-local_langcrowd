@@ -175,6 +175,7 @@ The plugin ships with translations for:
 |---|---|
 | English | `en` |
 | Thai | `th` |
+| Japanese | `ja` |
 
 ---
 
@@ -235,6 +236,7 @@ End-user guides are provided in the [`docs/`](docs/) folder:
 
 - English — [`docs/en/user-guide.md`](docs/en/user-guide.md)
 - ไทย (Thai) — [`docs/th/user-guide.md`](docs/th/user-guide.md)
+- 日本語 (Japanese) — [`docs/ja/user-guide.md`](docs/ja/user-guide.md)
 
 Developer/maintenance notes for this repository (review reports, UI/UX
 recommendations) live outside the repo, in the workspace `dev-docs/` tree.
