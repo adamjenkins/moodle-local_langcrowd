@@ -153,6 +153,10 @@ class string_manager extends \core_string_manager_standard {
         if (!$this->is_collecting_context() || $comp === 'local_langcrowd') {
             return;
         }
+        // Respect the admin's component filter (empty = all components).
+        if (!access::component_is_allowed($comp)) {
+            return;
+        }
         $maxstrings = (int)(get_config('local_langcrowd', 'maxstrings') ?: self::MAX_PAGE_STRINGS);
         if (count(self::$pagestrings) >= $maxstrings) {
             return;

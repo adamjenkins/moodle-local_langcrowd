@@ -168,5 +168,27 @@ final class exporter_test extends \advanced_testcase {
 
         $this->assertEqualsCanonicalizing(['en', 'th'], exporter::get_languages());
         $this->assertSame(['mod_forum'], array_values(exporter::get_components('en')));
+        $this->assertEqualsCanonicalizing(['mod_forum', 'mod_quiz'], exporter::get_all_components());
+    }
+
+    public function test_export_all_languages_includes_every_language(): void {
+        $this->resetAfterTest();
+        $this->make_string(['component' => 'mod_forum', 'lang' => 'en', 'stringkey' => 'a', 'currentvalue' => 'Forum']);
+        $this->make_string(['component' => 'mod_forum', 'lang' => 'th', 'stringkey' => 'a', 'currentvalue' => 'กระดาน']);
+
+        $binary = exporter::export_all_languages([], 'all');
+        $tmp = tempnam(sys_get_temp_dir(), 'lczip_');
+        file_put_contents($tmp, $binary);
+        $zip = new \ZipArchive();
+        $zip->open($tmp);
+        $en = $zip->getFromName('en/mod_forum.php');
+        $th = $zip->getFromName('th/mod_forum.php');
+        $zip->close();
+        unlink($tmp);
+
+        $this->assertNotFalse($en);
+        $this->assertNotFalse($th);
+        $this->assertStringContainsString('Forum', $en);
+        $this->assertStringContainsString('กระดาน', $th);
     }
 }

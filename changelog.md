@@ -48,19 +48,49 @@ changes; `version.php` is bumped so existing installs receive the update.
 
 ### Added
 
+- **Component filter setting** ("Components to enable crowdsourcing for"). Restricts the
+  overlay to selected components (empty = all), enforced server-side. Selected components
+  are pre-selected by default on the Export page.
+- **Opt-in "translate mode".** A floating toggle turns the voting buttons on only when the
+  user wants them, instead of annotating every page automatically. Off by default; the
+  choice persists across pages. Strings are only registered when the user activates it.
+- **Touch support.** On touch devices (no hover) the buttons default to always-visible.
+- **Undo a vote.** After voting, a short-lived "Undo" affordance withdraws the vote
+  (`submit_vote` now accepts `0` to withdraw).
+- **Approval progress hint.** The approve button's tooltip shows the current votes vs the
+  threshold (e.g. "5/10 approvals").
+- **English source shown** alongside the current translation in the suggestion dialog and
+  in both admin reports (new "English source" column).
+- **Bulk actions** in both reports: select rows and Lock/Remove (Voting) or
+  Approve/Push/Reject (Suggestions) in one go.
+- **Overview dashboard** (`overview.php`): pending/pushed/locked/total counts, pending
+  suggestions, most-voted strings and recent suggestions; it is the plugin's landing page.
+- **Export all languages** in one zip (an "All languages" option on the Export page).
 - **Full PHPUnit test suite** (`tests/`): exporter (incl. a hostile-value regression
   test), vote thresholding and status transitions, the aggregate task, string
-  registration, suggestions, the participation gate, and the privacy provider.
+  registration, suggestions, the participation gate, the manager, and the privacy provider.
 - `composer.json` for Packagist / Composer installation.
 - `.gitignore`.
 - User documentation under `docs/` in English and Thai.
+
+### Changed (UI/UX)
+
+- The suggestion dialog now uses Moodle's `core/modal`, so it matches the site theme,
+  dark mode and RTL, with a maintained focus trap.
+- The hover highlight is drawn as an **outline** rather than a background fill, so it never
+  reduces the contrast of the text it surrounds.
+- The overlay no longer annotates fixed/sticky regions (navbars, drawers, footers) where
+  the buttons used to collide with page chrome.
+- The overlay is hidden from users who lack the `local/langcrowd:vote` capability (they
+  would previously have hit an error on the first page scan).
 
 ### Internal
 
 - `$plugin->release` corrected to `0.3.0`, `$plugin->version` bumped, `$plugin->supported`
   set to `[502, 502]`, maturity raised to `MATURITY_BETA`.
+- Report state-transitions consolidated into a tested `\local_langcrowd\manager` class.
 - Copyright headers updated to `Adam Jenkins <adam@wisecat.net>`.
-- CI matrix aligned to the declared Moodle 5.2 support (PHP 8.2/8.3/8.4).
+- CI matrix aligned to the declared Moodle 5.2 support (PHP 8.3/8.4 — 5.2 requires PHP 8.3).
 - Vote-status and string-tracking logic refactored into helper methods (lower
   cyclomatic complexity); all CI checks pass locally (phplint, phpcs, phpdoc, phpmd,
   validate, savepoints, mustache, grunt/eslint, phpunit).

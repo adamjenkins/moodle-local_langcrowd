@@ -82,6 +82,12 @@ class get_string_ids extends external_api {
             $params['strings'] = array_slice($params['strings'], 0, self::MAX_STRINGS_PER_CALL);
         }
 
+        // Drop any components the admin has excluded (defends the filter server-side).
+        $params['strings'] = array_values(array_filter(
+            $params['strings'],
+            fn($s) => access::component_is_allowed($s['component'])
+        ));
+
         $idmap          = self::ensure_strings_exist($params['strings'], $params['lang']);
         $votesbystringid = self::fetch_user_votes(array_values($idmap), $USER->id);
 
@@ -252,6 +258,7 @@ class get_string_ids extends external_api {
                 'votecount' => (int)$rec->votecount,
                 'voted'     => $voted,
                 'vote'      => $voted ? $votesbystringid[$sid] : 0,
+                'source'    => (string)$rec->sourcevalue,
             ];
         }
         return $result;
@@ -272,6 +279,7 @@ class get_string_ids extends external_api {
                 'votecount' => new external_value(PARAM_INT, 'Current approve vote count'),
                 'voted'     => new external_value(PARAM_BOOL, 'Whether the current user has already voted'),
                 'vote'      => new external_value(PARAM_INT, 'User vote: 1, -1, or 0 if not voted'),
+                'source'    => new external_value(PARAM_RAW, 'The English source value for this string'),
             ])
         );
     }

@@ -30,8 +30,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Plugin declares $plugin->supported = [502, 502] (Moodle 5.2), which needs PHP 8.2+.
-        php: ['8.2', '8.3', '8.4']
+        # Plugin declares $plugin->supported = [502, 502] (Moodle 5.2), which requires PHP 8.3+.
+        php: ['8.3', '8.4']
         moodle-branch: ['MOODLE_502_STABLE']
         database: [pgsql, mariadb]
 

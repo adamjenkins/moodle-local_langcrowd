@@ -165,4 +165,39 @@ final class manager_test extends \advanced_testcase {
         // The active translation is unchanged.
         $this->assertSame('Forum', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
     }
+
+    public function test_bulk_lock_and_revert(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $a = $this->make_string(['stringkey' => 'a']);
+        $b = $this->make_string(['stringkey' => 'b']);
+
+        manager::lock_strings([$a, $b]);
+        $this->assertSame('locked', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $a]));
+        $this->assertSame('locked', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $b]));
+
+        manager::revert_strings([$a, $b]);
+        $this->assertSame('pending', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $a]));
+        $this->assertSame('pending', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $b]));
+    }
+
+    public function test_bulk_reject_suggestions(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        $ids = [];
+        foreach (['x', 'y'] as $s) {
+            $ids[] = $DB->insert_record('local_langcrowd_suggestions', (object)[
+                'stringid' => $sid, 'userid' => self::getDataGenerator()->create_user()->id,
+                'suggestion' => $s, 'status' => 'pending',
+                'timecreated' => time(), 'timemodified' => time(),
+            ]);
+        }
+
+        manager::reject_suggestions($ids);
+
+        foreach ($ids as $id) {
+            $this->assertSame('rejected', $DB->get_field('local_langcrowd_suggestions', 'status', ['id' => $id]));
+        }
+    }
 }

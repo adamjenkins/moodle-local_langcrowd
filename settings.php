@@ -32,6 +32,12 @@ if ($hassiteconfig) {
     $ADMIN->add('local_langcrowd_cat', $settings);
 
     $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
+        'local_langcrowd_overview',
+        get_string('overview', 'local_langcrowd'),
+        new moodle_url('/local/langcrowd/overview.php'),
+        'local/langcrowd:admin'
+    ));
+    $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
         'local_langcrowd_report_voting',
         get_string('report_voting', 'local_langcrowd'),
         new moodle_url('/local/langcrowd/report_voting.php'),
@@ -146,6 +152,27 @@ if ($hassiteconfig) {
             get_string('settings_allowed_langs_desc', 'local_langcrowd'),
             [],
             $langoptions
+        ));
+
+        // Components are discovered from the strings seen so far. Include any currently
+        // selected values that are no longer in that set so a saved selection persists.
+        $componentoptions = [];
+        foreach (\local_langcrowd\local\exporter::get_all_components() as $c) {
+            $componentoptions[$c] = $c;
+        }
+        $selectedcomponents = get_config('local_langcrowd', 'allowed_components');
+        if (!empty($selectedcomponents)) {
+            foreach (explode(',', $selectedcomponents) as $c) {
+                $componentoptions[$c] = $c;
+            }
+            ksort($componentoptions);
+        }
+        $settings->add(new admin_setting_configmultiselect(
+            'local_langcrowd/allowed_components',
+            get_string('settings_allowed_components', 'local_langcrowd'),
+            get_string('settings_allowed_components_desc', 'local_langcrowd'),
+            [],
+            $componentoptions
         ));
     }
 }

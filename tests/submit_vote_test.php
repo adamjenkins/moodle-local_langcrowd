@@ -153,6 +153,23 @@ final class submit_vote_test extends \advanced_testcase {
         $this->assertSame('pushed', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $sid]));
     }
 
+    public function test_withdraw_vote_removes_it(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $user = self::getDataGenerator()->create_user();
+        $this->setUser($user);
+        $sid = $this->make_string();
+
+        $this->call($sid, 1);
+        $this->assertSame(1, $DB->count_records('local_langcrowd_votes', ['stringid' => $sid]));
+
+        $result = $this->call($sid, 0);
+        $this->assertTrue($result['success']);
+        $this->assertSame(0, $DB->count_records('local_langcrowd_votes', ['stringid' => $sid, 'userid' => $user->id]));
+        $this->assertSame(0, (int)$DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $sid]));
+    }
+
     public function test_invalid_vote_value_rejected(): void {
         $this->resetAfterTest();
         $this->enable();

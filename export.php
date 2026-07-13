@@ -38,17 +38,31 @@ $availablelangs = \local_langcrowd\local\exporter::get_languages();
 
 // Handle form submission.
 if (optional_param('download', 0, PARAM_BOOL) && confirm_sesskey()) {
-    $lang       = required_param('lang', PARAM_LANG);
+    $langparam  = optional_param('lang', '', PARAM_RAW_TRIMMED);
     $scope      = optional_param('scope', 'locked', PARAM_ALPHA);
     $components = optional_param_array('components', [], PARAM_NOTAGS);
 
-    $binary = \local_langcrowd\local\exporter::export($lang, $components, $scope);
+    if ($langparam === '__all__') {
+        $binary   = \local_langcrowd\local\exporter::export_all_languages($components, $scope);
+        $filename = 'langpack_all_' . date('Ymd_His') . '.zip';
+    } else {
+        $lang = clean_param($langparam, PARAM_LANG);
+        if ($lang === '') {
+            redirect(
+                $PAGE->url,
+                get_string('export_nodata', 'local_langcrowd'),
+                null,
+                \core\output\notification::NOTIFY_WARNING
+            );
+        }
+        $binary   = \local_langcrowd\local\exporter::export($lang, $components, $scope);
+        $filename = 'langpack_' . $lang . '_' . date('Ymd_His') . '.zip';
+    }
 
     if ($binary === '') {
         redirect($PAGE->url, get_string('export_nodata', 'local_langcrowd'), null, \core\output\notification::NOTIFY_WARNING);
     }
 
-    $filename = 'langpack_' . $lang . '_' . date('Ymd_His') . '.zip';
     header('Content-Type: application/zip');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     header('Content-Length: ' . strlen($binary));
@@ -73,7 +87,7 @@ echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'download', 
 
 echo html_writer::start_div('mb-3');
 echo html_writer::label(get_string('export_language', 'local_langcrowd'), 'exportlang', true, ['class' => 'form-label fw-bold']);
-$langopts = [];
+$langopts = ['__all__' => get_string('export_all_languages', 'local_langcrowd')];
 foreach ($availablelangs as $l) {
     $langopts[$l] = $l;
 }
@@ -125,7 +139,11 @@ $compopts  = [];
 foreach ($comps as $c) {
     $compopts[$c] = $c;
 }
-echo html_writer::select($compopts, 'components[]', [], false, [
+// Pre-select the components chosen in the global setting (intersected with what's available).
+$allowedcsv         = get_config('local_langcrowd', 'allowed_components');
+$allowedcomponents  = !empty($allowedcsv) ? explode(',', $allowedcsv) : [];
+$selectedcomponents = array_values(array_intersect($allowedcomponents, array_keys($compopts)));
+echo html_writer::select($compopts, 'components[]', $selectedcomponents, false, [
     'id'       => 'exportcomponents',
     'class'    => 'form-select',
     'multiple' => 'multiple',

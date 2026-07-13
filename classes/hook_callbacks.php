@@ -34,22 +34,9 @@ class hook_callbacks {
      * @param \core\hook\output\before_footer_html_generation $hook
      */
     public static function before_footer(\core\hook\output\before_footer_html_generation $hook): void {
-        global $PAGE, $USER;
+        global $PAGE;
 
-        if (!access::is_enabled()) {
-            return;
-        }
-        if (!isloggedin() || isguestuser()) {
-            return;
-        }
-        // Enforce the same role/language gate the web services enforce server-side.
-        if (!access::user_can_participate($USER->id, current_language())) {
-            return;
-        }
-
-        // Don't annotate the plugin's own admin pages.
-        $path = $PAGE->url->get_path();
-        if (strpos($path, '/local/langcrowd/') !== false) {
+        if (!self::should_annotate()) {
             return;
         }
 
@@ -63,9 +50,13 @@ class hook_callbacks {
             'btn_suggest'          => get_string('btn_suggest', 'local_langcrowd'),
             'modal_suggest_title'  => get_string('modal_suggest_title', 'local_langcrowd'),
             'modal_original_label' => get_string('modal_original_label', 'local_langcrowd'),
+            'modal_source_label'   => get_string('modal_source_label', 'local_langcrowd'),
             'modal_suggestion_label' => get_string('modal_suggestion_label', 'local_langcrowd'),
             'modal_submit'         => get_string('modal_submit', 'local_langcrowd'),
             'modal_cancel'         => get_string('modal_cancel', 'local_langcrowd'),
+            'toggle_label'         => get_string('overlay_toggle', 'local_langcrowd'),
+            'undo'                 => get_string('overlay_undo', 'local_langcrowd'),
+            'progress_label'       => get_string('overlay_progress_label', 'local_langcrowd'),
         ];
 
         $data = json_encode([
@@ -74,6 +65,7 @@ class hook_callbacks {
             'uistrings'      => $uistrings,
             'showmode'       => get_config('local_langcrowd', 'showmode') ?: 'hover',
             'highlightcolor' => get_config('local_langcrowd', 'highlightcolor') ?: '#fff3cd',
+            'threshold'      => (int)get_config('local_langcrowd', 'threshold'),
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 
         // Set the global before RequireJS loads (timing-safe: assignment needs no AMD).
@@ -81,6 +73,30 @@ class hook_callbacks {
 
         // Schedule the AMD call via requires so it runs after RequireJS is set up.
         $PAGE->requires->js_call_amd('local_langcrowd/voting', 'init');
+    }
+
+    /**
+     * Whether the overlay should be injected for the current request and user.
+     *
+     * @return bool
+     */
+    protected static function should_annotate(): bool {
+        global $PAGE, $USER;
+
+        if (!access::is_enabled() || !isloggedin() || isguestuser()) {
+            return false;
+        }
+        // Enforce the same role/language gate the web services enforce server-side.
+        if (!access::user_can_participate($USER->id, current_language())) {
+            return false;
+        }
+        // The overlay calls a service that needs this capability; don't show buttons
+        // to users who lack it (otherwise their first page scan would just error).
+        if (!has_capability('local/langcrowd:vote', \context_system::instance())) {
+            return false;
+        }
+        // Don't annotate the plugin's own admin pages.
+        return strpos($PAGE->url->get_path(), '/local/langcrowd/') === false;
     }
 
     /**
@@ -97,7 +113,7 @@ class hook_callbacks {
         }
         $hook->get_primaryview()->add(
             get_string('pluginname', 'local_langcrowd'),
-            new \moodle_url('/admin/category.php', ['category' => 'local_langcrowd_cat']),
+            new \moodle_url('/local/langcrowd/overview.php'),
             \navigation_node::TYPE_CUSTOM,
             null,
             'langcrowd_admin',

@@ -42,7 +42,7 @@ class submit_vote extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'stringid' => new external_value(PARAM_INT, 'The string DB ID'),
-            'vote'     => new external_value(PARAM_INT, 'Vote value: 1 to approve, -1 to reject'),
+            'vote'     => new external_value(PARAM_INT, 'Vote value: 1 to approve, -1 to reject, 0 to withdraw'),
         ]);
     }
 
@@ -66,8 +66,8 @@ class submit_vote extends external_api {
         self::validate_context($context);
         require_capability('local/langcrowd:vote', $context);
 
-        if (!in_array($params['vote'], [1, -1], true)) {
-            throw new \invalid_parameter_exception('Vote must be 1 or -1.');
+        if (!in_array($params['vote'], [1, -1, 0], true)) {
+            throw new \invalid_parameter_exception('Vote must be 1, -1 or 0.');
         }
 
         $strrecord = $DB->get_record('local_langcrowd_strings', ['id' => $params['stringid']], '*', MUST_EXIST);
@@ -85,30 +85,38 @@ class submit_vote extends external_api {
 
         $now = time();
 
-        // Upsert the vote record.
-        $existing = $DB->get_record('local_langcrowd_votes', [
-            'stringid' => $params['stringid'],
-            'userid'   => $USER->id,
-        ]);
-
-        if ($existing) {
-            $DB->set_field('local_langcrowd_votes', 'vote', $params['vote'], ['id' => $existing->id]);
+        if ($params['vote'] === 0) {
+            // Withdraw: remove this user's vote entirely (the undo affordance).
+            $DB->delete_records('local_langcrowd_votes', [
+                'stringid' => $params['stringid'],
+                'userid'   => $USER->id,
+            ]);
         } else {
-            $voterow              = new \stdClass();
-            $voterow->stringid   = $params['stringid'];
-            $voterow->userid     = $USER->id;
-            $voterow->vote       = $params['vote'];
-            $voterow->timecreated = $now;
-            try {
-                $DB->insert_record('local_langcrowd_votes', $voterow);
-            } catch (\dml_write_exception $e) {
-                // A concurrent vote from the same user won the unique index race; update it.
-                $DB->set_field(
-                    'local_langcrowd_votes',
-                    'vote',
-                    $params['vote'],
-                    ['stringid' => $params['stringid'], 'userid' => $USER->id]
-                );
+            // Upsert the vote record.
+            $existing = $DB->get_record('local_langcrowd_votes', [
+                'stringid' => $params['stringid'],
+                'userid'   => $USER->id,
+            ]);
+
+            if ($existing) {
+                $DB->set_field('local_langcrowd_votes', 'vote', $params['vote'], ['id' => $existing->id]);
+            } else {
+                $voterow              = new \stdClass();
+                $voterow->stringid   = $params['stringid'];
+                $voterow->userid     = $USER->id;
+                $voterow->vote       = $params['vote'];
+                $voterow->timecreated = $now;
+                try {
+                    $DB->insert_record('local_langcrowd_votes', $voterow);
+                } catch (\dml_write_exception $e) {
+                    // A concurrent vote from the same user won the unique index race; update it.
+                    $DB->set_field(
+                        'local_langcrowd_votes',
+                        'vote',
+                        $params['vote'],
+                        ['stringid' => $params['stringid'], 'userid' => $USER->id]
+                    );
+                }
             }
         }
 

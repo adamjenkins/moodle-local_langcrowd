@@ -37,15 +37,43 @@ class exporter {
      * @return string            Raw zip binary, or empty string if no data.
      */
     public static function export(string $lang, array $components, string $scope): string {
+        return self::build_zip(self::fetch_records($lang, $components, $scope));
+    }
+
+    /**
+     * Builds a zip archive covering every language that has string records.
+     *
+     * @param array  $components Components to include (empty = all).
+     * @param string $scope      'locked' for locked strings only, 'all' for all with a currentvalue.
+     * @return string            Raw zip binary, or empty string if no data.
+     */
+    public static function export_all_languages(array $components, string $scope): string {
+        return self::build_zip(self::fetch_records(null, $components, $scope));
+    }
+
+    /**
+     * Fetches exportable string records, optionally restricted to one language.
+     *
+     * @param string|null $lang       Language code, or null for all languages.
+     * @param array       $components Components to include (empty = all).
+     * @param string      $scope      'locked' or 'all'.
+     * @return array
+     */
+    protected static function fetch_records(?string $lang, array $components, string $scope): array {
         global $DB;
 
-        $where  = 'lang = :lang AND currentvalue IS NOT NULL AND ' . $DB->sql_isnotempty(
+        $where  = 'currentvalue IS NOT NULL AND ' . $DB->sql_isnotempty(
             'local_langcrowd_strings',
             'currentvalue',
-            false,
+            true,
             true
         );
-        $sqlparams = ['lang' => $lang];
+        $sqlparams = [];
+
+        if ($lang !== null) {
+            $where .= ' AND lang = :lang';
+            $sqlparams['lang'] = $lang;
+        }
 
         if ($scope === 'locked') {
             $where .= " AND status = 'locked'";
@@ -57,21 +85,29 @@ class exporter {
             $sqlparams  = array_merge($sqlparams, $inparams);
         }
 
-        $records = $DB->get_records_select(
+        return $DB->get_records_select(
             'local_langcrowd_strings',
             $where,
             $sqlparams,
-            'component ASC, stringkey ASC'
+            'lang ASC, component ASC, stringkey ASC'
         );
+    }
 
+    /**
+     * Builds a language-pack zip from a flat list of string records.
+     *
+     * @param array $records
+     * @return string Raw zip binary, or empty string if no data.
+     */
+    protected static function build_zip(array $records): string {
         if (empty($records)) {
             return '';
         }
 
-        // Group by component.
-        $bycomponent = [];
+        // Group by language then component.
+        $bylang = [];
         foreach ($records as $rec) {
-            $bycomponent[$rec->component][] = $rec;
+            $bylang[$rec->lang][$rec->component][] = $rec;
         }
 
         $tmpfile = tempnam(sys_get_temp_dir(), 'langcrowd_');
@@ -80,9 +116,11 @@ class exporter {
             return '';
         }
 
-        foreach ($bycomponent as $component => $strings) {
-            $content = self::generate_lang_file($component, $lang, $strings);
-            $zip->addFromString($lang . '/' . $component . '.php', $content);
+        foreach ($bylang as $lang => $bycomponent) {
+            foreach ($bycomponent as $component => $strings) {
+                $content = self::generate_lang_file($component, $lang, $strings);
+                $zip->addFromString($lang . '/' . $component . '.php', $content);
+            }
         }
 
         $zip->close();
@@ -133,6 +171,24 @@ class exporter {
             'DISTINCT component',
             'lang = :lang',
             ['lang' => $lang],
+            'component ASC'
+        );
+        return $records ?: [];
+    }
+
+    /**
+     * Returns a distinct sorted list of every component that has string records,
+     * across all languages. Used to populate the global component filter.
+     *
+     * @return array
+     */
+    public static function get_all_components(): array {
+        global $DB;
+        $records = $DB->get_fieldset_select(
+            'local_langcrowd_strings',
+            'DISTINCT component',
+            '',
+            [],
             'component ASC'
         );
         return $records ?: [];

@@ -91,6 +91,20 @@ class access {
     }
 
     /**
+     * Whether crowdsourcing is enabled for the given component.
+     *
+     * @param string $component
+     * @return bool
+     */
+    public static function component_is_allowed(string $component): bool {
+        $allowedcomponents = get_config('local_langcrowd', 'allowed_components');
+        if (empty($allowedcomponents)) {
+            return true;
+        }
+        return in_array($component, explode(',', $allowedcomponents), true);
+    }
+
+    /**
      * Full participation gate for the current user in the current language.
      *
      * @param int    $userid

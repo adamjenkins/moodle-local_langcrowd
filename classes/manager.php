@@ -107,4 +107,49 @@ class manager {
             'timemodified' => time(),
         ]);
     }
+
+    /**
+     * Locks each of the given strings (admin override).
+     *
+     * @param int[] $stringids
+     */
+    public static function lock_strings(array $stringids): void {
+        foreach ($stringids as $id) {
+            self::lock_string((int)$id);
+        }
+    }
+
+    /**
+     * Reverts each of the given strings to pending.
+     *
+     * @param int[] $stringids
+     */
+    public static function revert_strings(array $stringids): void {
+        foreach ($stringids as $id) {
+            self::revert_string((int)$id);
+        }
+    }
+
+    /**
+     * Applies each of the given suggestions (bulk Approve or Push).
+     *
+     * @param int[] $suggestionids
+     * @param bool  $lock
+     */
+    public static function apply_suggestions(array $suggestionids, bool $lock): void {
+        foreach ($suggestionids as $id) {
+            self::apply_suggestion((int)$id, $lock);
+        }
+    }
+
+    /**
+     * Rejects each of the given suggestions.
+     *
+     * @param int[] $suggestionids
+     */
+    public static function reject_suggestions(array $suggestionids): void {
+        foreach ($suggestionids as $id) {
+            self::reject_suggestion((int)$id);
+        }
+    }
 }

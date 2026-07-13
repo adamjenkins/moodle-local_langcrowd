@@ -82,6 +82,15 @@ final class access_test extends \advanced_testcase {
         $this->assertTrue(access::lang_is_allowed('th'));
     }
 
+    public function test_component_restriction(): void {
+        $this->resetAfterTest();
+        $this->assertTrue(access::component_is_allowed('mod_forum'));
+        set_config('allowed_components', 'mod_forum,core', 'local_langcrowd');
+        $this->assertTrue(access::component_is_allowed('mod_forum'));
+        $this->assertTrue(access::component_is_allowed('core'));
+        $this->assertFalse(access::component_is_allowed('mod_quiz'));
+    }
+
     public function test_require_can_participate_throws_when_disabled(): void {
         $this->resetAfterTest();
         $user = self::getDataGenerator()->create_user();
