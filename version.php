@@ -18,14 +18,15 @@
  * Plugin version information.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_langcrowd';
-$plugin->release   = '0.1.0';
-$plugin->version   = 2026061601;
+$plugin->release   = '0.3.0';
+$plugin->version   = 2026071300;
 $plugin->requires  = 2026042000;
-$plugin->maturity  = MATURITY_ALPHA;
+$plugin->supported = [502, 502];
+$plugin->maturity  = MATURITY_BETA;

@@ -21,7 +21,7 @@
  * beside each unvoted text node via a DOM TreeWalker scan.
  *
  * @module     local_langcrowd/voting
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
@@ -343,14 +343,58 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         document.body.appendChild(backdrop);
 
         var textarea = backdrop.querySelector('#lc-suggestion');
+        // Remember what had focus so we can restore it when the modal closes.
+        var previouslyFocused = document.activeElement;
 
-        backdrop.querySelector('#lc-cancel').addEventListener('click', function() {
-            backdrop.parentNode.removeChild(backdrop);
-        });
+        /**
+         * Closes the modal, detaches global listeners, and returns focus to the opener.
+         */
+        function closeModal() {
+            document.removeEventListener('keydown', onKeydown, true);
+            if (backdrop.parentNode) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                previouslyFocused.focus();
+            }
+        }
+
+        /**
+         * Keeps Tab focus inside the dialog and closes it on Escape.
+         *
+         * @param {KeyboardEvent} e
+         */
+        function onKeydown(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                e.preventDefault();
+                closeModal();
+                return;
+            }
+            if (e.key !== 'Tab' && e.keyCode !== 9) {
+                return;
+            }
+            var focusable = backdrop.querySelectorAll(
+                'button, textarea, [href], input, select, [tabindex]:not([tabindex="-1"])');
+            if (focusable.length === 0) {
+                return;
+            }
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+        document.addEventListener('keydown', onKeydown, true);
+
+        backdrop.querySelector('#lc-cancel').addEventListener('click', closeModal);
 
         backdrop.addEventListener('click', function(e) {
             if (e.target === backdrop) {
-                backdrop.parentNode.removeChild(backdrop);
+                closeModal();
             }
         });
 
@@ -363,8 +407,10 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
                 methodname: 'local_langcrowd_submit_suggestion',
                 args: {stringid: info.stringid, suggestion: suggestion},
             }])[0].then(function(result) {
+                // On success flag the string as handled; if it was refused (e.g. the
+                // string locked in the meantime) just close — there is nothing to submit.
+                closeModal();
                 if (result.success) {
-                    backdrop.parentNode.removeChild(backdrop);
                     removeButtons(wrap);
                     flash(wrap, '&#x2713;', '#6c757d');
                 }

@@ -18,13 +18,14 @@
  * Thai language strings for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $string['action_lock'] = 'ล็อก';
+$string['action_lock_confirm'] = 'ล็อกสตริงนี้เป็นการแปลที่ใช้งานทันที โดยข้ามเกณฑ์คะแนนหรือไม่?';
 $string['action_promote'] = 'อนุมัติ';
 $string['action_promote_confirm'] = 'คุณแน่ใจหรือไม่ว่าต้องการอนุมัติข้อเสนอแนะนี้? มันจะกลายเป็นการแปลที่ใช้งานทันทีและรีเซ็ตคะแนนเป็นศูนย์';
 $string['action_push'] = 'ส่งเข้าชุดภาษา';

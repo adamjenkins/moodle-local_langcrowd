@@ -18,7 +18,7 @@
  * External function definitions for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -31,6 +31,7 @@ $functions = [
         'type'         => 'write',
         'ajax'         => true,
         'loginrequired' => true,
+        'capabilities' => 'local/langcrowd:vote',
     ],
     'local_langcrowd_submit_vote' => [
         'classname'    => \local_langcrowd\external\submit_vote::class,
@@ -38,6 +39,7 @@ $functions = [
         'type'         => 'write',
         'ajax'         => true,
         'loginrequired' => true,
+        'capabilities' => 'local/langcrowd:vote',
     ],
     'local_langcrowd_submit_suggestion' => [
         'classname'    => \local_langcrowd\external\submit_suggestion::class,
@@ -45,5 +47,6 @@ $functions = [
         'type'         => 'write',
         'ajax'         => true,
         'loginrequired' => true,
+        'capabilities' => 'local/langcrowd:suggest',
     ],
 ];

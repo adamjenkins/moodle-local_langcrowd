@@ -18,7 +18,7 @@
  * Voting report for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -61,26 +61,15 @@ $PAGE->set_title(get_string('report_voting', 'local_langcrowd'));
 $PAGE->set_heading(get_string('report_voting', 'local_langcrowd'));
 $PAGE->set_pagelayout('admin');
 
-// Handle unlock action (locked/pushed → pending, reset vote count).
+// Handle unlock action (locked/pushed → pending, reset vote cycle and value).
 if ($action === 'unlock' && $stringid && confirm_sesskey()) {
-    $DB->update_record('local_langcrowd_strings', (object)[
-        'id'           => $stringid,
-        'status'       => 'pending',
-        'votecount'    => 0,
-        'timemodified' => time(),
-    ]);
-    get_string_manager()->reset_caches();
+    \local_langcrowd\manager::revert_string($stringid);
     redirect($pageurl, get_string('status_pending', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
 // Handle lock action (pending → locked).
 if ($action === 'lock' && $stringid && confirm_sesskey()) {
-    $DB->update_record('local_langcrowd_strings', (object)[
-        'id'           => $stringid,
-        'status'       => 'locked',
-        'timemodified' => time(),
-    ]);
-    get_string_manager()->reset_caches();
+    \local_langcrowd\manager::lock_string($stringid);
     redirect($pageurl, get_string('status_locked', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
@@ -252,9 +241,9 @@ if (empty($records)) {
                 break;
         }
 
+        // State changes go through POST buttons (single_button adds the sesskey).
         $actionparams = [
             'stringid'  => $rec->id,
-            'sesskey'   => sesskey(),
             'lang'      => $lang,
             'component' => $component,
             'status'    => $status,
@@ -262,18 +251,23 @@ if (empty($records)) {
             'dir'       => $dir,
         ];
         if (in_array($rec->status, ['locked', 'pushed'], true)) {
-            $actions = html_writer::link(
+            $button = new \core\output\single_button(
                 new moodle_url('/local/langcrowd/report_voting.php', $actionparams + ['action' => 'unlock']),
                 get_string('action_unlock', 'local_langcrowd'),
-                ['class' => 'btn btn-sm btn-outline-secondary']
+                'post',
+                \core\output\single_button::BUTTON_SECONDARY
             );
+            $button->add_confirm_action(get_string('action_unlock_confirm', 'local_langcrowd'));
         } else {
-            $actions = html_writer::link(
+            $button = new \core\output\single_button(
                 new moodle_url('/local/langcrowd/report_voting.php', $actionparams + ['action' => 'lock']),
                 get_string('action_lock', 'local_langcrowd'),
-                ['class' => 'btn btn-sm btn-outline-success']
+                'post',
+                \core\output\single_button::BUTTON_SUCCESS
             );
+            $button->add_confirm_action(get_string('action_lock_confirm', 'local_langcrowd'));
         }
+        $actions = $OUTPUT->render($button);
 
         $table->data[] = [
             s($rec->component),

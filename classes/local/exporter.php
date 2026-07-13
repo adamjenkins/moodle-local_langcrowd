@@ -18,7 +18,7 @@
  * Language pack exporter for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -110,9 +110,11 @@ class exporter {
         $lines[] = '';
 
         foreach ($strings as $rec) {
-            $key     = str_replace("'", "\\'", $rec->stringkey);
-            $value   = str_replace("'", "\\'", $rec->currentvalue);
-            $lines[] = "\$string['" . $key . "'] = '" . $value . "';";
+            // Use var_export so backslashes, quotes and control characters in
+            // user-submitted translations are escaped correctly and the emitted
+            // file is always valid, safe-to-load PHP.
+            $lines[] = '$string[' . var_export((string)$rec->stringkey, true) . '] = '
+                . var_export((string)$rec->currentvalue, true) . ';';
         }
 
         return implode("\n", $lines) . "\n";
@@ -146,7 +148,7 @@ class exporter {
         $records = $DB->get_fieldset_select(
             'local_langcrowd_strings',
             'DISTINCT lang',
-            '1=1',
+            '',
             [],
             'lang ASC'
         );

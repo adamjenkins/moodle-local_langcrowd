@@ -18,7 +18,7 @@
  * External function: submit_suggestion
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -28,6 +28,7 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_langcrowd\access;
 
 /**
  * Stores an alternative translation suggestion and records a reject vote.
@@ -70,8 +71,21 @@ class submit_suggestion extends external_api {
             throw new \invalid_parameter_exception('Suggestion cannot be empty.');
         }
 
-        // Verify the string record exists.
-        $DB->get_record('local_langcrowd_strings', ['id' => $params['stringid']], 'id', MUST_EXIST);
+        // Verify the string record exists and read its language + status.
+        $strrecord = $DB->get_record(
+            'local_langcrowd_strings',
+            ['id' => $params['stringid']],
+            'id, lang, status',
+            MUST_EXIST
+        );
+
+        // Enforce the enabled/role/language gate server-side using the string's language.
+        access::require_can_participate($USER->id, $strrecord->lang);
+
+        // A locked string is settled; don't accept further suggestions against it.
+        if ($strrecord->status === 'locked') {
+            return ['success' => false];
+        }
 
         $now = time();
 
@@ -91,7 +105,12 @@ class submit_suggestion extends external_api {
             $vote->userid      = $USER->id;
             $vote->vote        = -1;
             $vote->timecreated = $now;
-            $DB->insert_record('local_langcrowd_votes', $vote);
+            try {
+                $DB->insert_record('local_langcrowd_votes', $vote);
+            } catch (\dml_write_exception $e) {
+                // The user voted concurrently; their existing vote stands.
+                $vote = null;
+            }
         }
 
         return ['success' => true];

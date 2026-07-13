@@ -7,6 +7,66 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.0] — 2026-07-13
+
+Hardening and quality release following a full code review. No database schema
+changes; `version.php` is bumped so existing installs receive the update.
+
+### Fixed
+
+- **"Remove" on the Voting Report now actually reverts a string durably.** Previously it
+  reset the vote count to zero and the status to *Pending* but left the underlying vote
+  rows in place, so the hourly aggregate task (or the next vote) recounted them and
+  immediately re-locked the string. Remove now deletes the votes and resets the value to
+  the source translation, matching the Approve/Push actions. A regression test asserts a
+  reverted string stays pending after the aggregate task runs.
+
+### Security
+
+- **Exporter now emits language files with `var_export()`** instead of hand-rolled
+  quote escaping. User-submitted translations containing backslashes or quotes could
+  previously produce a corrupt — and potentially code-injecting — `.php` language file.
+  Exported packs are now always valid, safe-to-load PHP.
+- **`get_string_ids` web service now requires the `local/langcrowd:vote` capability**
+  and enforces the enabled/role/language gate. Previously any authenticated user could
+  register arbitrary string rows by calling the service directly, regardless of the
+  "allowed roles" setting. The number of strings accepted per call is now bounded.
+- **"Allowed roles" and "Allowed languages" are now enforced server-side** in all three
+  web services, not just used to hide the overlay. The restrictions can no longer be
+  bypassed by calling the services directly.
+- **Admin report actions (Lock, Remove, Approve, Push, Reject) now use POST buttons**
+  with a confirmation dialog instead of GET links, following Moodle convention for
+  state-changing requests.
+
+### Changed
+
+- Locked and pushed translations are now also served in **AJAX-rendered content**, not
+  only full page loads, so promoted translations appear consistently everywhere.
+- Suggestions can no longer be submitted against an already-locked string.
+- The suggestion modal is now keyboard-accessible: Escape closes it, Tab focus is
+  trapped inside it, and focus returns to the triggering button on close.
+
+### Added
+
+- **Full PHPUnit test suite** (`tests/`): exporter (incl. a hostile-value regression
+  test), vote thresholding and status transitions, the aggregate task, string
+  registration, suggestions, the participation gate, and the privacy provider.
+- `composer.json` for Packagist / Composer installation.
+- `.gitignore`.
+- User documentation under `docs/` in English and Thai.
+
+### Internal
+
+- `$plugin->release` corrected to `0.3.0`, `$plugin->version` bumped, `$plugin->supported`
+  set to `[502, 502]`, maturity raised to `MATURITY_BETA`.
+- Copyright headers updated to `Adam Jenkins <adam@wisecat.net>`.
+- CI matrix aligned to the declared Moodle 5.2 support (PHP 8.2/8.3/8.4).
+- Vote-status and string-tracking logic refactored into helper methods (lower
+  cyclomatic complexity); all CI checks pass locally (phplint, phpcs, phpdoc, phpmd,
+  validate, savepoints, mustache, grunt/eslint, phpunit).
+
+---
+
 ## [0.2.1] — 2026-06-17
 
 ### Added

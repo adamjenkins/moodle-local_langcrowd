@@ -1,0 +1,22 @@
+{
+    "name": "adamjenkins/moodle-local_langcrowd",
+    "description": "Language Crowdsourcing for Moodle — users collaboratively build and vote on language pack translations inline in the Moodle interface.",
+    "type": "moodle-local",
+    "keywords": ["moodle", "local", "language", "translation", "crowdsourcing", "l10n"],
+    "homepage": "https://github.com/adamjenkins/moodle-local_langcrowd",
+    "require": {
+        "moodle/moodle": "^5.2",
+        "moodle/composer-installer": "^1.0"
+    },
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Adam Jenkins",
+            "email": "adam@wisecat.net"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/adamjenkins/moodle-local_langcrowd/issues",
+        "source": "https://github.com/adamjenkins/moodle-local_langcrowd"
+    }
+}

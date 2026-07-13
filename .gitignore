@@ -1,0 +1,17 @@
+# Node / build tooling
+/node_modules/
+/vendor/
+npm-debug.log*
+package-lock.json
+
+# Editor / OS cruft
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Test / CI artefacts
+/.phpunit.result.cache
+/moodle/

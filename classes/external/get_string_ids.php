@@ -18,7 +18,7 @@
  * External function: get_string_ids
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -29,11 +29,15 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_langcrowd\access;
 
 /**
  * Registers page strings in the DB (if new) and returns IDs + user's votes.
  */
 class get_string_ids extends external_api {
+    /** Hard cap on strings accepted per call, mirroring the client-side page cap. */
+    protected const MAX_STRINGS_PER_CALL = 5000;
+
     /**
      * Returns the parameter specification.
      *
@@ -68,7 +72,15 @@ class get_string_ids extends external_api {
         ]);
 
         require_login();
-        self::validate_context(\context_system::instance());
+        $context = \context_system::instance();
+        self::validate_context($context);
+        require_capability('local/langcrowd:vote', $context);
+        access::require_can_participate($USER->id, $params['lang']);
+
+        // Bound the number of strings registered per call to avoid unbounded writes.
+        if (count($params['strings']) > self::MAX_STRINGS_PER_CALL) {
+            $params['strings'] = array_slice($params['strings'], 0, self::MAX_STRINGS_PER_CALL);
+        }
 
         $idmap          = self::ensure_strings_exist($params['strings'], $params['lang']);
         $votesbystringid = self::fetch_user_votes(array_values($idmap), $USER->id);

@@ -37,7 +37,14 @@ Or clone directly:
 
 ```bash
 cd /path/to/moodle/local
-git clone https://github.com/yourorg/moodle-local_langcrowd langcrowd
+git clone https://github.com/adamjenkins/moodle-local_langcrowd langcrowd
+```
+
+Or install with Composer (the [`moodle/composer-installer`](https://github.com/micaherne/moodle-composer-installer)
+places it under `local/langcrowd` automatically):
+
+```bash
+composer require adamjenkins/moodle-local_langcrowd
 ```
 
 ### 2. Add the custom string manager to config.php
@@ -210,6 +217,28 @@ sudo -u www-data vendor/bin/phpunit --testsuite local_langcrowd
 - Suggestion text is cleaned as `PARAM_TEXT` (strips HTML tags) before storage.
 
 ---
+
+## Documentation
+
+End-user guides are provided in the [`docs/`](docs/) folder:
+
+- English — [`docs/en/user-guide.md`](docs/en/user-guide.md)
+- ไทย (Thai) — [`docs/th/user-guide.md`](docs/th/user-guide.md)
+
+Developer/maintenance notes for this repository (review reports, UI/UX
+recommendations) live outside the repo, in the workspace `dev-docs/` tree.
+
+## Testing
+
+```bash
+cd /path/to/moodle
+php public/admin/tool/phpunit/cli/init.php
+vendor/bin/phpunit --testsuite local_langcrowd_testsuite
+```
+
+The plugin ships a full PHPUnit suite covering the exporter, vote thresholding and
+status transitions, the scheduled task, the web services, the participation gate, and
+the privacy provider.
 
 ## License
 

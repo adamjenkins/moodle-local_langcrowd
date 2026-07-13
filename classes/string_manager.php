@@ -23,7 +23,7 @@
  * that escape their output are unaffected.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -37,11 +37,19 @@ class string_manager extends \core_string_manager_standard {
     protected const MAX_PAGE_STRINGS = 5000;
 
     /**
-     * Tri-state: null = not yet determined, false = not a web request, true = web request.
+     * Memoised: true when this request collects page strings (full HTML page, not AJAX/CLI/cron).
      *
      * @var bool|null
      */
-    protected static ?bool $webcontext = null;
+    protected static ?bool $collectcontext = null;
+
+    /**
+     * Memoised: true when this request should serve promoted translations (any non-CLI request,
+     * including AJAX, so locked translations appear in dynamically rendered content too).
+     *
+     * @var bool|null
+     */
+    protected static ?bool $servecontext = null;
 
     /**
      * Accumulated {component, key, value} tuples for this request.
@@ -76,7 +84,7 @@ class string_manager extends \core_string_manager_standard {
             return;
         }
         self::$promotedstrings = [];
-        if (!$this->is_web_context()) {
+        if (!$this->is_serving_context()) {
             return;
         }
         global $DB;
@@ -113,88 +121,100 @@ class string_manager extends \core_string_manager_standard {
         $comp     = empty($component) ? 'moodle' : $component;
         $cachekey = $comp . '::' . $identifier;
 
-        // Serve a promoted (locked) translation when one exists and no substitution is needed.
+        // Serve a promoted (locked/pushed) translation when one exists and no substitution is needed.
         if ($a === null && $lang === null && isset(self::$promotedstrings[$cachekey])) {
             $result = self::$promotedstrings[$cachekey];
             // Track the promoted value so DOM text nodes (which show the promoted text) match.
-            if (
-                $this->is_web_context()
-                    && count(self::$pagestrings) < (int)(get_config('local_langcrowd', 'maxstrings') ?: self::MAX_PAGE_STRINGS)
-                    && $comp !== 'local_langcrowd'
-                    && mb_strlen($result) >= 3
-                    && $result === strip_tags($result)
-                    && strpos($result, "\n") === false
-                    && strpos($result, "\r") === false
-            ) {
-                if (!isset(self::$pagestrings[$cachekey])) {
-                    self::$pagestrings[$cachekey] = [
-                        'component' => $comp,
-                        'key'       => $identifier,
-                        'value'     => $result,
-                    ];
-                }
-            }
+            $this->maybe_track($comp, $identifier, $result);
             return $result;
         }
 
         $result = parent::get_string($identifier, $component, $a, $lang);
 
-        // Only track static strings (no parameter substitution) in web contexts.
-        $maxstrings = (int)(get_config('local_langcrowd', 'maxstrings') ?: self::MAX_PAGE_STRINGS);
-        if (
-            $a === null
-                && count(self::$pagestrings) < $maxstrings
-                && $this->is_web_context()
-        ) {
-            $comp = empty($component) ? 'moodle' : $component;
-
-            // Skip the plugin's own strings to avoid noise in the UI.
-            if ($comp === 'local_langcrowd') {
-                return $result;
-            }
-
-            // Skip very short strings — they are usually punctuation or single letters.
-            if (mb_strlen($result) < 3) {
-                return $result;
-            }
-
-            // Skip strings containing HTML markup — they can't match DOM text nodes.
-            if ($result !== strip_tags($result)) {
-                return $result;
-            }
-
-            // Skip strings with embedded newlines — they break text-node matching.
-            if (strpos($result, "\n") !== false || strpos($result, "\r") !== false) {
-                return $result;
-            }
-
-            $cachekey = $comp . '::' . $identifier;
-            if (!isset(self::$pagestrings[$cachekey])) {
-                self::$pagestrings[$cachekey] = [
-                    'component' => $comp,
-                    'key'       => $identifier,
-                    'value'     => $result,
-                ];
-            }
+        // Only track static strings (no parameter substitution).
+        if ($a === null) {
+            $this->maybe_track($comp, $identifier, $result);
         }
 
         return $result;
     }
 
     /**
-     * Returns true only for normal HTTP page requests, not CLI/cron/AJAX.
+     * Records a string for the footer overlay if it is trackable in this context.
+     *
+     * Skips the plugin's own strings, very short strings, strings containing HTML,
+     * and strings with embedded newlines — none of which can match a DOM text node.
+     *
+     * @param string $comp       Resolved component name.
+     * @param string $identifier String key.
+     * @param string $value      Rendered value.
+     */
+    protected function maybe_track(string $comp, string $identifier, string $value): void {
+        if (!$this->is_collecting_context() || $comp === 'local_langcrowd') {
+            return;
+        }
+        $maxstrings = (int)(get_config('local_langcrowd', 'maxstrings') ?: self::MAX_PAGE_STRINGS);
+        if (count(self::$pagestrings) >= $maxstrings) {
+            return;
+        }
+        if (!self::is_trackable_value($value)) {
+            return;
+        }
+        $cachekey = $comp . '::' . $identifier;
+        if (!isset(self::$pagestrings[$cachekey])) {
+            self::$pagestrings[$cachekey] = [
+                'component' => $comp,
+                'key'       => $identifier,
+                'value'     => $value,
+            ];
+        }
+    }
+
+    /**
+     * Whether a rendered value can be matched to a DOM text node and is worth tracking.
+     *
+     * Rejects very short strings (usually punctuation), strings containing HTML markup,
+     * and strings with embedded newlines — none of which match a plain text node.
+     *
+     * @param string $value
+     * @return bool
+     */
+    protected static function is_trackable_value(string $value): bool {
+        return mb_strlen($value) >= 3
+            && $value === strip_tags($value)
+            && strpos($value, "\n") === false
+            && strpos($value, "\r") === false;
+    }
+
+    /**
+     * Returns true only for normal HTTP page requests where the overlay is rendered
+     * (not CLI, cron or AJAX). This is when page strings are collected for the footer.
      *
      * @return bool
      */
-    protected function is_web_context(): bool {
-        if (self::$webcontext !== null) {
-            return self::$webcontext;
+    protected function is_collecting_context(): bool {
+        if (self::$collectcontext !== null) {
+            return self::$collectcontext;
         }
-        // Moodle's setup.php always defines these constants (as false for web, true for CLI/AJAX).
-        // We must check their value, not just whether they are defined.
-        self::$webcontext = (!defined('CLI_SCRIPT') || !CLI_SCRIPT)
-            && (!defined('AJAX_SCRIPT') || !AJAX_SCRIPT)
+        // Moodle's setup.php always defines these constants (true for CLI/AJAX/cron).
+        self::$collectcontext = self::is_serving_context()
+            && (!defined('AJAX_SCRIPT') || !AJAX_SCRIPT);
+        return self::$collectcontext;
+    }
+
+    /**
+     * Returns true for any request that renders content to a user (web or AJAX), so
+     * promoted (locked/pushed) translations are served everywhere they can appear.
+     * CLI and cron are excluded — they don't render and shouldn't pay the DB cost.
+     *
+     * @return bool
+     */
+    protected function is_serving_context(): bool {
+        if (self::$servecontext !== null) {
+            return self::$servecontext;
+        }
+        self::$servecontext = (!defined('CLI_SCRIPT') || !CLI_SCRIPT)
             && (!defined('CRON_SCRIPT') || !CRON_SCRIPT);
-        return self::$webcontext;
+        return self::$servecontext;
     }
 }

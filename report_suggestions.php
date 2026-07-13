@@ -18,7 +18,7 @@
  * User suggestions report for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -48,41 +48,19 @@ $PAGE->set_pagelayout('admin');
 
 // Handle promote / push / reject actions.
 if ($suggestionid && confirm_sesskey()) {
-    $suggestion = $DB->get_record('local_langcrowd_suggestions', ['id' => $suggestionid], '*', MUST_EXIST);
-    $now        = time();
+    // Verify the suggestion exists before acting on it.
+    $DB->get_record('local_langcrowd_suggestions', ['id' => $suggestionid], 'id', MUST_EXIST);
 
     if ($action === 'promote') {
-        // Admin-approve: replace currentvalue, lock the string, reset the vote cycle.
-        $DB->update_record('local_langcrowd_strings', (object)[
-            'id'           => $suggestion->stringid,
-            'currentvalue' => $suggestion->suggestion,
-            'votecount'    => 0,
-            'status'       => 'locked',
-            'timemodified' => $now,
-        ]);
-        // Clear all existing votes so users can re-vote if the string is ever unlocked.
-        $DB->delete_records('local_langcrowd_votes', ['stringid' => $suggestion->stringid]);
-        $DB->set_field('local_langcrowd_suggestions', 'status', 'promoted', ['id' => $suggestionid]);
-        // Purge string caches so the new value is served immediately.
-        get_string_manager()->reset_caches();
+        // Admin-approve: make the suggestion the active translation and lock it.
+        \local_langcrowd\manager::apply_suggestion($suggestionid, true);
         redirect($baseurl, get_string('status_promoted', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
     } else if ($action === 'push') {
         // Push: serve the suggestion immediately but keep the string open for voting.
-        // Votes are reset so users cast fresh votes on the new value.
-        $DB->update_record('local_langcrowd_strings', (object)[
-            'id'           => $suggestion->stringid,
-            'currentvalue' => $suggestion->suggestion,
-            'votecount'    => 0,
-            'status'       => 'pushed',
-            'timemodified' => $now,
-        ]);
-        $DB->delete_records('local_langcrowd_votes', ['stringid' => $suggestion->stringid]);
-        $DB->set_field('local_langcrowd_suggestions', 'status', 'promoted', ['id' => $suggestionid]);
-        get_string_manager()->reset_caches();
+        \local_langcrowd\manager::apply_suggestion($suggestionid, false);
         redirect($baseurl, get_string('status_pushed', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
     } else if ($action === 'reject') {
-        $DB->set_field('local_langcrowd_suggestions', 'status', 'rejected', ['id' => $suggestionid]);
-        $DB->set_field('local_langcrowd_suggestions', 'timemodified', $now, ['id' => $suggestionid]);
+        \local_langcrowd\manager::reject_suggestion($suggestionid);
         redirect($baseurl, get_string('status_rejected', 'local_langcrowd'), null, \core\output\notification::NOTIFY_SUCCESS);
     }
 }
@@ -177,55 +155,41 @@ if (empty($records)) {
     $table->data  = [];
 
     foreach ($records as $rec) {
-        $promoteurl = new moodle_url('/local/langcrowd/report_suggestions.php', [
-            'action'       => 'promote',
+        // State changes go through POST buttons with a confirm dialog (sesskey added by single_button).
+        $commonparams = [
             'suggestionid' => $rec->id,
-            'sesskey'      => sesskey(),
             'lang'         => $lang,
             'component'    => $component,
-        ]);
-        $pushurl = new moodle_url('/local/langcrowd/report_suggestions.php', [
-            'action'       => 'push',
-            'suggestionid' => $rec->id,
-            'sesskey'      => sesskey(),
-            'lang'         => $lang,
-            'component'    => $component,
-        ]);
-        $rejecturl = new moodle_url('/local/langcrowd/report_suggestions.php', [
-            'action'       => 'reject',
-            'suggestionid' => $rec->id,
-            'sesskey'      => sesskey(),
-            'lang'         => $lang,
-            'component'    => $component,
-        ]);
+        ];
 
-        $actions = html_writer::link(
-            $promoteurl,
+        $promotebtn = new \core\output\single_button(
+            new moodle_url('/local/langcrowd/report_suggestions.php', $commonparams + ['action' => 'promote']),
             get_string('action_promote', 'local_langcrowd'),
-            ['class' => 'btn btn-sm btn-success me-1',
-            'onclick' => 'return confirm(' . json_encode(get_string(
-                'action_promote_confirm',
-                'local_langcrowd'
-            )) . ')']
-        ) .
-            html_writer::link(
-                $pushurl,
-                get_string('action_push', 'local_langcrowd'),
-                ['class' => 'btn btn-sm btn-primary me-1',
-                'onclick' => 'return confirm(' . json_encode(get_string(
-                    'action_push_confirm',
-                    'local_langcrowd'
-                )) . ')']
-            ) .
-            html_writer::link(
-                $rejecturl,
-                get_string('action_reject', 'local_langcrowd'),
-                ['class' => 'btn btn-sm btn-outline-danger',
-                'onclick' => 'return confirm(' . json_encode(get_string(
-                    'action_reject_confirm',
-                    'local_langcrowd'
-                )) . ')']
-            );
+            'post',
+            \core\output\single_button::BUTTON_SUCCESS
+        );
+        $promotebtn->add_confirm_action(get_string('action_promote_confirm', 'local_langcrowd'));
+
+        $pushbtn = new \core\output\single_button(
+            new moodle_url('/local/langcrowd/report_suggestions.php', $commonparams + ['action' => 'push']),
+            get_string('action_push', 'local_langcrowd'),
+            'post',
+            \core\output\single_button::BUTTON_PRIMARY
+        );
+        $pushbtn->add_confirm_action(get_string('action_push_confirm', 'local_langcrowd'));
+
+        $rejectbtn = new \core\output\single_button(
+            new moodle_url('/local/langcrowd/report_suggestions.php', $commonparams + ['action' => 'reject']),
+            get_string('action_reject', 'local_langcrowd'),
+            'post',
+            \core\output\single_button::BUTTON_DANGER
+        );
+        $rejectbtn->add_confirm_action(get_string('action_reject_confirm', 'local_langcrowd'));
+
+        $actions = html_writer::div(
+            $OUTPUT->render($promotebtn) . $OUTPUT->render($pushbtn) . $OUTPUT->render($rejectbtn),
+            'd-flex gap-1 flex-wrap'
+        );
 
         $table->data[] = [
             s($rec->component),

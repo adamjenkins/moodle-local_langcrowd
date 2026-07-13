@@ -18,7 +18,7 @@
  * Hook callback handlers for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -34,34 +34,17 @@ class hook_callbacks {
      * @param \core\hook\output\before_footer_html_generation $hook
      */
     public static function before_footer(\core\hook\output\before_footer_html_generation $hook): void {
-        global $DB, $PAGE, $USER;
+        global $PAGE, $USER;
 
-        if (!get_config('local_langcrowd', 'enabled')) {
+        if (!access::is_enabled()) {
             return;
         }
         if (!isloggedin() || isguestuser()) {
             return;
         }
-
-        $allowedroles = get_config('local_langcrowd', 'allowed_roles');
-        if (!empty($allowedroles) && !is_siteadmin()) {
-            $roleids = explode(',', $allowedroles);
-            [$insql, $params] = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED);
-            $params['userid'] = $USER->id;
-            $hasrole = $DB->record_exists_sql(
-                "SELECT 1 FROM {role_assignments} WHERE userid = :userid AND roleid $insql",
-                $params
-            );
-            if (!$hasrole) {
-                return;
-            }
-        }
-
-        $allowedlangs = get_config('local_langcrowd', 'allowed_langs');
-        if (!empty($allowedlangs)) {
-            if (!in_array(current_language(), explode(',', $allowedlangs), true)) {
-                return;
-            }
+        // Enforce the same role/language gate the web services enforce server-side.
+        if (!access::user_can_participate($USER->id, current_language())) {
+            return;
         }
 
         // Don't annotate the plugin's own admin pages.

@@ -18,13 +18,14 @@
  * English language strings for local_langcrowd.
  *
  * @package    local_langcrowd
- * @copyright  2026 hama.history@gmail.com
+ * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $string['action_lock'] = 'Lock';
+$string['action_lock_confirm'] = 'Lock this string immediately as the active translation, bypassing the vote threshold?';
 $string['action_promote'] = 'Approve';
 $string['action_promote_confirm'] = 'Are you sure you want to approve this suggestion? It will become the active translation immediately and reset votes to zero.';
 $string['action_push'] = 'Push to language pack';
