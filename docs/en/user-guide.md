@@ -9,8 +9,9 @@ administrator who manages and exports them.
 ## 1. What the plugin does
 
 Language Crowdsourcing lets your users improve Moodle's interface translations
-without leaving Moodle. When it is switched on, most short pieces of on-screen
-text gain two small buttons:
+without leaving Moodle. When it is switched on, a floating **Improve translations**
+button appears. Turn it on and most short pieces of on-screen text gain two small
+buttons — so nothing changes until you choose to help:
 
 - **✓ (tick)** — "this translation is good." When enough people approve a string,
   it locks in and is served to everyone.
@@ -24,27 +25,32 @@ language. Switch your language and you switch which translation you are voting o
 
 ## 2. For contributors
 
-### Seeing the buttons
+### Turning on translate mode
 
-You need to be logged in (guests can't vote). Depending on site settings the
-buttons may appear only when you move your mouse over a piece of text, or they may
-always be visible. If you don't see any buttons, crowdsourcing may be limited to
-certain roles or languages on your site — ask your administrator.
+You need to be logged in (guests can't vote). Click the **Improve translations**
+button in the bottom-right corner to switch translate mode on; click it again to
+switch off. Your choice is remembered as you move between pages. If you don't see
+the button at all, crowdsourcing may be limited to certain roles, languages or
+components on your site — ask your administrator.
+
+Once translate mode is on, the buttons appear when you move your mouse over a
+piece of text (or all the time, if your site is set that way, and always on touch
+screens).
 
 ### Approving a translation
 
-Hover over a phrase and click the green **✓**. Your vote is recorded and the
-buttons for that phrase disappear — you won't be asked about it again.
+Hover over a phrase and click the green **✓**. Its tooltip shows how close the
+phrase is to being locked in (for example "5/10 approvals"). Your vote is recorded
+and the buttons for that phrase disappear. Changed your mind? A short-lived
+**Undo** link appears for a few seconds so you can withdraw the vote.
 
 ### Suggesting a better translation
 
-Click the red **✗**. A small dialog opens showing the current text and a box for
-your suggestion. Type your improved translation and click **Submit suggestion**.
-Your suggestion goes to an administrator, and a "this needs work" vote is recorded
-at the same time.
-
-The dialog is keyboard friendly: press **Esc** to cancel, and **Tab** moves
-between the text box and the buttons.
+Click the red **✗**. A dialog opens showing the English source and the current
+text, with a box for your suggestion. Type your improved translation and click
+**Submit suggestion**. Your suggestion goes to an administrator, and a "this needs
+work" vote is recorded at the same time. Press **Esc** or **Cancel** to close
+without submitting.
 
 ### What happens next
 
@@ -84,12 +90,20 @@ Crowdsourcing**.
 | Admin approve vote locks immediately | If on, an approve vote by a site admin locks the string at once. |
 | Approval threshold | How many approve votes lock a string in (default 10). |
 | Max strings per page | Upper limit on annotated strings per page (default 5000). |
-| Button display mode | Show buttons on hover only, or always. |
-| String highlight colour | Background colour shown when hovering a phrase. |
+| Button display mode | Show buttons on hover only, or always (touch devices are always "always"). |
+| String highlight colour | Colour of the outline drawn around a phrase on hover. |
 | Roles allowed to vote | Restrict voting to specific roles. Empty = all logged-in users. **Enforced server-side.** |
 | Languages to enable crowdsourcing for | Restrict the overlay to specific languages. Empty = all. |
+| Components to enable crowdsourcing for | Restrict the overlay to specific components (e.g. `mod_forum`, `core`). Empty = all. The list is built from strings seen so far; clear it to let new components be discovered again. |
 
-### 3.3 Voting Report
+### 3.3 Overview
+
+The **Overview** page is the plugin's dashboard. It shows how many strings are
+pending, pushed and locked, how many strings are tracked in total, and how many
+suggestions are waiting — plus the most-voted strings still open for voting and the
+most recent suggestions, with quick links into the reports and the exporter.
+
+### 3.4 Voting Report
 
 Lists every string that has voting activity, across three statuses:
 
@@ -97,30 +111,35 @@ Lists every string that has voting activity, across three statuses:
 - **Pushed** (blue) — an accepted suggestion served live, still open for voting.
 - **Locked** (green) — settled and served as the active translation.
 
-You can filter by language, component and status, tick **Include strings with no
-votes** to see everything, and click any column header to sort. Each row has an
-action button (with a confirmation prompt):
+The table shows the English source next to the current translation. You can filter
+by language, component and status, tick **Include strings with no votes** to see
+everything, and click any column header to sort. Each row has an action button
+(with a confirmation prompt), and you can act on several rows at once by ticking
+their checkboxes and using the action bar under the table:
 
 - **Lock** — immediately lock a pending string without waiting for the threshold.
-- **Remove** — revert a locked/pushed string to pending and reset its votes.
+- **Remove** — revert a locked/pushed string to pending, resetting its votes.
 
-### 3.4 User Suggestions
+### 3.5 User Suggestions
 
-Lists pending suggestions from users, showing the current text, the suggestion and
-who submitted it. For each you can:
+Lists pending suggestions from users, showing the English source, the current
+translation, the suggestion and who submitted it. Each action can be applied per
+row or in bulk (tick the checkboxes and use the action bar):
 
 - **Approve** — make the suggestion the active translation and lock it (resets votes).
 - **Push to language pack** — serve it live now but keep it open for community
   voting; it locks automatically once the threshold is reached.
 - **Reject** — dismiss the suggestion, leaving the current translation unchanged.
 
-### 3.5 Exporting a language pack
+### 3.6 Exporting a language pack
 
-Open **Export Language Pack**, choose a language, optionally filter by component,
-choose **Locked strings only** or **All strings with translations**, and click
-**Download language pack**. You receive a standard Moodle language-pack `.zip`
-that you can install under **Site administration → Language → Language packs** or
-unzip into your Moodle `lang/` directory.
+Open **Export Language Pack**, choose a single language or **All languages**,
+optionally filter by component (the components chosen in the *Components to enable
+crowdsourcing for* setting are pre-selected for you), choose **Locked strings only**
+or **All strings with translations**, and click **Download language pack**. You
+receive a standard Moodle language-pack `.zip` that you can install under **Site
+administration → Language → Language packs** or unzip into your Moodle `lang/`
+directory.
 
 ---
 

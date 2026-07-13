@@ -24,12 +24,25 @@ purely so existing sites are offered the update; no upgrade step is required.
 
 ## Behavioural changes
 
+- The overlay is now **opt-in**: a floating "Improve translations" toggle turns the
+  buttons on only when the user asks, instead of annotating every page automatically.
 - Locked/pushed translations are now served in AJAX-rendered content too, not just full page loads.
 - Suggestions can no longer be submitted against a locked string.
-- The suggestion modal is now keyboard accessible (Escape to close, focus trap, focus return).
+- The suggestion dialog now uses `core/modal` (theme / dark mode / RTL aware) and shows the English source.
+- The hover highlight is drawn as an outline (contrast-safe) instead of a background fill.
+- The overlay skips fixed/sticky regions (navbars, drawers, footers) and is hidden from users without `local/langcrowd:vote`.
 
 ## New in this release
 
+- **Component filter** setting — restrict the overlay to selected components (empty = all),
+  enforced server-side; the Export page pre-selects those components.
+- **Undo a vote** — a short-lived undo affordance after voting (`submit_vote` accepts `0` to withdraw).
+- **Approval progress** shown in the approve button's tooltip (e.g. "5/10 approvals").
+- **Touch support** — always-visible buttons on devices without hover.
+- **English source column** in both admin reports, and **bulk actions** (select rows +
+  Lock/Remove or Approve/Push/Reject).
+- **Overview dashboard** (`overview.php`) with status counts, most-voted strings and recent suggestions.
+- **Export all languages** in one zip.
 - A full PHPUnit test suite under `tests/`.
 - `composer.json` (Packagist / Composer install) and `.gitignore`.
 - User documentation under `docs/` in English (`en`) and Thai (`th`).
@@ -38,7 +51,7 @@ purely so existing sites are offered the update; no upgrade step is required.
 
 - `release` → `0.3.0`, `version` → `2026071300`, `supported` → `[502, 502]`, maturity → `BETA`.
 - Copyright headers updated to `Adam Jenkins <adam@wisecat.net>`.
-- CI matrix aligned to Moodle 5.2 (PHP 8.2 / 8.3 / 8.4).
+- CI matrix corrected to Moodle 5.2 on PHP 8.3 / 8.4 (5.2 requires PHP 8.3).
 
 ## Upgrade notes
 

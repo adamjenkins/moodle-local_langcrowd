@@ -4,23 +4,23 @@ A Moodle 5.2+ local plugin that lets your users collaboratively build and vote o
 
 ## How it works
 
-When crowdsourcing is active, every language string rendered on screen gets two small inline badge buttons:
+When crowdsourcing is enabled, logged-in users see a floating **Improve translations** button. Turning it on ("translate mode") annotates the language strings on screen with two small inline badge buttons — so the buttons only appear when the user opts in, not on every page automatically. The choice is remembered for the rest of the session.
 
-- **✓ (tick)** — the user approves the current translation. Once a string reaches the configured vote threshold it is locked and served immediately as the active translation.
-- **✗ (cross)** — the user disagrees with the current translation and is prompted to type an alternative. Their suggestion is queued for admin review.
+- **✓ (tick)** — the user approves the current translation. Its tooltip shows the progress towards the lock threshold (e.g. "5/10 approvals"). Once a string reaches the configured vote threshold it is locked and served immediately as the active translation.
+- **✗ (cross)** — the user disagrees with the current translation and is prompted (in a themed dialog showing the English source) to type an alternative. Their suggestion is queued for admin review.
 
-After voting on a string, the buttons disappear for that user so they are never shown the same string twice.
+After voting on a string the buttons disappear, but a short-lived **Undo** link lets the user withdraw the vote. On touch devices (which have no hover) the buttons are always visible.
 
 The target language is the user's current Moodle interface language. Switching interface language switches the translation target automatically.
 
-Buttons can be restricted to specific roles and to specific installed language packs via admin settings.
+The overlay can be restricted to specific roles, specific installed language packs, and specific components via admin settings.
 
 ---
 
 ## Requirements
 
 - Moodle 5.2 or later (version ≥ 2026042000)
-- PHP 8.2+
+- PHP 8.3+ (Moodle 5.2 requires PHP 8.3)
 - A writable `config.php` (one line must be added — see Installation)
 
 ---
@@ -82,16 +82,23 @@ Navigate to **Site administration → Language → Language Crowdsourcing → Se
 | Admin approve vote locks immediately | When enabled, an approve vote from a site administrator locks the string at once, bypassing the vote threshold. Reject votes and non-admin voters are unaffected. | Off |
 | Approval threshold | Approve-votes needed to lock a string in. | 10 |
 | Max strings per page | Cap on annotated strings per page. Raise for complex admin pages. | 5000 |
-| Button display mode | `Hover` hides buttons until the user mouses over a string; `Always` keeps them visible. | Hover |
-| String highlight colour | Background colour applied to a string on button hover. | `#fff3cd` |
+| Button display mode | `Hover` hides buttons until the user mouses over a string; `Always` keeps them visible. Ignored on touch devices, where buttons are always visible. | Hover |
+| String highlight colour | Colour of the outline drawn around a string on button hover. | `#fff3cd` |
 | Roles allowed to vote | Restrict voting to specific roles. Empty = all logged-in users. | (all) |
 | Languages to enable crowdsourcing for | Restrict the overlay to specific installed language packs. Empty = all languages. | (all) |
+| Components to enable crowdsourcing for | Restrict the overlay to specific components (e.g. `mod_forum`, `core`). Empty = all. The list is built from strings seen so far; clear it to let new components be discovered again. | (all) |
+
+> The overlay is only shown to users who hold the `local/langcrowd:vote` capability, and the role/language/component restrictions are enforced both in the UI and in the web services.
 
 ---
 
 ## Admin reports
 
 Accessible at **Site administration → Language → Language Crowdsourcing**.
+
+### Overview
+
+The landing page. Shows at-a-glance counts (Pending / Pushed / Locked / total strings tracked / pending suggestions), the most-voted strings still open for voting, and the most recent suggestions, with quick links to the reports and the exporter.
 
 ### Voting Report
 
@@ -105,17 +112,17 @@ Shows all strings across the three active statuses in one view:
 
 **Filters:** Language, Component, Status, and an *Include strings with no votes* checkbox (hidden by default so the view focuses on strings with voting activity).
 
-**Sortable columns:** click any column header to sort; click again to reverse direction.
+**Columns:** the English source is shown alongside the current translation. Click any column header to sort; click again to reverse direction.
 
-**Actions:**
+**Actions** (per row, or in bulk by ticking the checkboxes and using the action bar below the table):
 - **Lock** (Pending rows) — admin override that locks the string immediately without waiting for the vote threshold.
-- **Remove** (Locked / Pushed rows) — reverts the string to *Pending*, resets the vote count to zero, and stops serving it as the active translation.
+- **Remove** (Locked / Pushed rows) — reverts the string to *Pending*, resets the vote count to zero, deletes the accumulated votes, and stops serving it as the active translation.
 
 Both locked and pushed strings are **served immediately** as the active translation without requiring an export step — the custom string manager intercepts `get_string()` and returns the stored value.
 
 ### User Suggestions
 
-Lists all pending alternative translations submitted by users. Each row shows the current translation alongside the suggestion and who submitted it. Available actions:
+Lists all pending alternative translations submitted by users. Each row shows the English source and the current translation alongside the suggestion and who submitted it. Actions are available per row or in bulk (tick the checkboxes and use the action bar):
 
 - **Approve** — admin-locks the string immediately (*locked* status), resets the vote count to zero, and purges caches. Use when you are confident the suggestion is correct and want no further community input.
 - **Push to language pack** — makes the suggestion live right now (*pushed* status) while keeping the string open for community voting. Votes reset to zero so users vote fresh on the new value. Once votes cross the threshold the string locks automatically. Use when you want the improvement served immediately but still want community validation.
@@ -127,7 +134,7 @@ Lists all pending alternative translations submitted by users. Each row shows th
 
 Go to **Site administration → Language → Language Crowdsourcing → Export Language Pack**.
 
-Select a language, optionally filter by component, choose whether to export locked strings only or all strings with translations, then click **Download language pack**. You receive a `.zip` file structured as a standard Moodle language pack:
+Select a language (or **All languages** to export every language in one archive), optionally filter by component — the components chosen in the *Components to enable crowdsourcing for* setting are pre-selected by default — choose whether to export locked strings only or all strings with translations, then click **Download language pack**. You receive a `.zip` file structured as a standard Moodle language pack:
 
 ```
 {lang}/
@@ -173,13 +180,17 @@ The plugin ships with translations for:
 
 ## Architecture notes
 
-- **Custom string manager** (`classes/string_manager.php`): extends `core_string_manager_standard`. Intercepts `get_string()` to (a) serve promoted/locked translations from DB without requiring an export, and (b) collect plain-text strings for the footer hook. Filters out parameterised strings, HTML-containing strings, strings with embedded newlines, and strings shorter than 3 characters.
+- **Custom string manager** (`classes/string_manager.php`): extends `core_string_manager_standard`. Intercepts `get_string()` to (a) serve promoted/locked translations from DB without requiring an export (in web *and* AJAX contexts), and (b) collect plain-text strings for the footer hook. Filters out parameterised strings, HTML-containing strings, strings with embedded newlines, strings shorter than 3 characters, and components excluded by the component filter.
 
-- **Footer hook** (`classes/hook_callbacks.php`): injects `window.langcrowdInit` JSON and schedules the `local_langcrowd/voting` AMD call. Respects enabled/role/language filters before injecting.
+- **Access gate** (`classes/access.php`): the single source of truth for the enabled / role / language / component checks, used by both the footer hook and the web services so the restrictions can't be bypassed by calling the services directly.
 
-- **AMD voting module** (`amd/src/voting.js`): DOM TreeWalker scans text nodes and calls `get_string_ids` web service. Strings inside `<a>` links are handled by wrapping the entire anchor element so buttons live outside it (avoids Moodle's capture-phase link navigation). A MutationObserver re-annotates content added by reactive frameworks. Activity names and form controls are excluded.
+- **Footer hook** (`classes/hook_callbacks.php`): injects `window.langcrowdInit` JSON and schedules the `local_langcrowd/voting` AMD call. Only runs when the user passes the access gate and holds `local/langcrowd:vote`.
 
-- **Web services**: three AJAX endpoints — `get_string_ids` (register and look up strings), `submit_vote`, `submit_suggestion` — all require login and appropriate capabilities.
+- **AMD voting module** (`amd/src/voting.js`): renders the opt-in "translate mode" toggle. On activation it calls the `get_string_ids` web service, then a DOM TreeWalker scans text nodes and annotates matches. Strings inside `<a>` links are handled by wrapping the entire anchor element so buttons live outside it (avoids Moodle's capture-phase link navigation). A MutationObserver re-annotates content added by reactive frameworks. Activity names, form controls and fixed/sticky regions (navbars, drawers, footers) are excluded. The suggestion dialog uses `core/modal` so it inherits the site theme, dark mode and RTL.
+
+- **Manager** (`classes/manager.php`): centralises the admin state transitions (lock / revert / apply-suggestion / reject, plus bulk variants) so the report scripts stay thin and every "reset" also clears the underlying vote rows.
+
+- **Web services**: three AJAX endpoints — `get_string_ids` (register and look up strings), `submit_vote` (approve `1`, reject `-1`, withdraw `0`), `submit_suggestion` — all require login and the appropriate capability, and re-check the access gate.
 
 ---
 
