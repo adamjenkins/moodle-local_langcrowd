@@ -161,8 +161,9 @@ class get_string_ids extends external_api {
     protected static function insert_missing(array $strings, string $lang, array $existingmap): array {
         global $DB;
 
-        $now   = time();
-        $idmap = [];
+        $stringmanager = get_string_manager();
+        $now           = time();
+        $idmap         = [];
 
         foreach ($strings as $strdata) {
             $comp = $strdata['component'];
@@ -177,11 +178,18 @@ class get_string_ids extends external_api {
                 continue;
             }
 
+            // Only register strings that really exist, and resolve the English
+            // source server-side: the client-submitted value is the string as
+            // rendered in the voter's language, not the English original.
+            if (!$stringmanager->string_exists($key, $comp)) {
+                continue;
+            }
+
             $record               = new \stdClass();
             $record->component    = $comp;
             $record->stringkey    = $key;
             $record->lang         = $lang;
-            $record->sourcevalue  = $strdata['value'];
+            $record->sourcevalue  = $stringmanager->get_string($key, $comp, null, 'en');
             $record->currentvalue = $strdata['value'];
             $record->votecount    = 0;
             $record->status       = 'pending';

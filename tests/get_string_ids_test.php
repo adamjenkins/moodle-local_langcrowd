@@ -107,12 +107,58 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->setUser(self::getDataGenerator()->create_user());
 
         $result = $this->call([
-            ['component' => 'mod_forum', 'key' => 'good_key', 'value' => 'Good'],
+            ['component' => 'mod_forum', 'key' => 'replies', 'value' => 'Replies'],
             ['component' => 'mod_forum', 'key' => 'bad key with spaces!', 'value' => 'Bad'],
         ]);
 
         $this->assertCount(1, $result);
         $this->assertSame(1, $DB->count_records('local_langcrowd_strings'));
+    }
+
+    public function test_source_value_resolved_from_english_pack(): void {
+        global $CFG, $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        // Install a minimal 'ja' lang pack so PARAM_LANG accepts the language.
+        make_writable_directory($CFG->dataroot . '/lang/ja');
+        file_put_contents(
+            $CFG->dataroot . '/lang/ja/langconfig.php',
+            "<?php\n\$string['thislanguage'] = 'Japanese';\n"
+        );
+        get_string_manager()->reset_caches();
+
+        // A voter browsing in Japanese submits the value as rendered on their page,
+        // which is the existing translation, not the English source.
+        $result = $this->call([
+            ['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'フォーラム'],
+        ], 'ja');
+
+        $rec = $DB->get_record(
+            'local_langcrowd_strings',
+            ['component' => 'mod_forum', 'stringkey' => 'modulename'],
+            '*',
+            MUST_EXIST
+        );
+        $this->assertSame('ja', $rec->lang);
+        $this->assertSame('Forum', $rec->sourcevalue);
+        $this->assertSame('フォーラム', $rec->currentvalue);
+        $this->assertSame('Forum', $result[0]['source']);
+    }
+
+    public function test_strings_unknown_to_english_pack_skipped(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        $result = $this->call([
+            ['component' => 'mod_forum', 'key' => 'nosuchstringkey', 'value' => 'Whatever'],
+        ]);
+
+        $this->assertCount(0, $result);
+        $this->assertSame(0, $DB->count_records('local_langcrowd_strings'));
     }
 
     public function test_role_restriction_blocks_direct_call(): void {

@@ -7,6 +7,24 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.1] — 2026-07-14
+
+### Fixed
+
+- **The "English source" column now really shows the English source.** When a string
+  was first registered, the plugin stored the client-submitted value — the string as
+  rendered in the voter's current language — as `sourcevalue`. Wherever the target
+  language pack (or a promoted translation) already translated the string, the
+  "English source" shown in the Voting and Suggestions reports and in the suggestion
+  dialog was therefore not English. The English value is now resolved server-side
+  from the English language pack at registration time, and an upgrade step
+  recomputes `sourcevalue` for all existing records.
+- The `get_string_ids` web service no longer registers string keys that do not exist
+  in the English language pack (previously any well-formed key sent by a client was
+  inserted verbatim).
+
+---
+
 ## [0.3.0] — 2026-07-13
 
 Hardening and quality release following a full code review. No database schema
