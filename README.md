@@ -69,6 +69,13 @@ Or visit **Site administration → Notifications** in your browser.
 
 Go to **Site administration → Language → Language Crowdsourcing** and tick **Enable crowdsourcing**.
 
+### Uninstalling
+
+When uninstalling the plugin, also remove the `$CFG->customstringmanager` line
+from `config.php`. Moodle degrades gracefully if it is left behind (it logs a
+debugging notice and falls back to the standard string manager), but the stale
+line references a class that no longer exists and should not stay in place.
+
 ---
 
 ## Admin settings
@@ -228,6 +235,9 @@ sudo -u www-data vendor/bin/phpunit --testsuite local_langcrowd
 - All user-supplied content displayed in reports is escaped with `s()`.
 - External functions validate parameters with Moodle type constants and require appropriate capabilities.
 - Suggestion text is cleaned as `PARAM_TEXT` (strips HTML tags) before storage.
+- Stored string values (`sourcevalue` and `currentvalue`) are resolved server-side
+  from the language packs — clients cannot submit string values. As defence in
+  depth, the string manager never serves a promoted value containing HTML markup.
 
 ---
 

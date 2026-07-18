@@ -96,14 +96,31 @@ class string_manager extends \core_string_manager_standard {
                 [current_language()]
             );
             foreach ($records as $rec) {
-                // Only override if the currentvalue actually differs from the source.
-                if ($rec->currentvalue !== $rec->sourcevalue) {
+                if (self::should_promote($rec)) {
                     self::$promotedstrings[$rec->component . '::' . $rec->stringkey] = $rec->currentvalue;
                 }
             }
         } catch (\Throwable $e) {
             debugging('local_langcrowd: failed to load promoted strings: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
+    }
+
+    /**
+     * Whether a promoted (locked/pushed) row may be served through get_string().
+     *
+     * Only rows whose value actually differs from the source are worth serving.
+     * Values containing markup are never served: currentvalue is derived
+     * server-side from lang packs or tag-stripped suggestions, so markup can
+     * only mean tampered or legacy data (get_string() output is emitted
+     * unescaped throughout Moodle).
+     *
+     * @param \stdClass $rec Row with currentvalue and sourcevalue.
+     * @return bool
+     */
+    protected static function should_promote(\stdClass $rec): bool {
+        $current = (string)$rec->currentvalue;
+        return $current !== (string)$rec->sourcevalue
+            && $current === strip_tags($current);
     }
 
     /**

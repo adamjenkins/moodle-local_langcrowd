@@ -110,9 +110,11 @@ class exporter {
             $bylang[$rec->lang][$rec->component][] = $rec;
         }
 
-        $tmpfile = tempnam(sys_get_temp_dir(), 'langcrowd_');
+        // Build the zip under Moodle's managed temp area; make_request_directory()
+        // is auto-removed at the end of the request.
+        $tmpfile = make_request_directory() . '/langcrowd_export.zip';
         $zip = new \ZipArchive();
-        if ($zip->open($tmpfile, \ZipArchive::OVERWRITE) !== true) {
+        if ($zip->open($tmpfile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
             return '';
         }
 

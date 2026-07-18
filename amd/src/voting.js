@@ -146,9 +146,14 @@ define([
         annotated = true;
 
         var data = window.langcrowdInit;
+        // The service only takes component + key; rendered values stay client-side
+        // for DOM matching (the server resolves values from the lang packs itself).
+        var keys = data.strings.map(function(s) {
+            return {component: s.component, key: s.key};
+        });
         Ajax.call([{
             methodname: 'local_langcrowd_get_string_ids',
-            args: {strings: data.strings, lang: data.lang},
+            args: {strings: keys, lang: data.lang},
         }])[0].then(function(results) {
             results.forEach(function(item) {
                 if (item.status === 'locked' || item.voted) {

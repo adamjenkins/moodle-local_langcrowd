@@ -50,6 +50,28 @@ final class get_string_ids_test extends \advanced_testcase {
         set_config('enabled', 1, 'local_langcrowd');
     }
 
+    /**
+     * Installs a minimal 'ja' lang pack in the test dataroot.
+     *
+     * @param array $forumstrings Optional mod_forum strings to translate.
+     */
+    protected function install_ja_pack(array $forumstrings = []): void {
+        global $CFG;
+        make_writable_directory($CFG->dataroot . '/lang/ja');
+        file_put_contents(
+            $CFG->dataroot . '/lang/ja/langconfig.php',
+            "<?php\n\$string['thislanguage'] = 'Japanese';\n"
+        );
+        if ($forumstrings) {
+            $content = "<?php\n";
+            foreach ($forumstrings as $key => $value) {
+                $content .= '$string[' . var_export($key, true) . '] = ' . var_export($value, true) . ";\n";
+            }
+            file_put_contents($CFG->dataroot . '/lang/ja/forum.php', $content);
+        }
+        get_string_manager()->reset_caches();
+    }
+
     public function test_registers_new_strings(): void {
         global $DB;
         $this->resetAfterTest();
@@ -57,8 +79,8 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->setUser(self::getDataGenerator()->create_user());
 
         $result = $this->call([
-            ['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum'],
-            ['component' => 'mod_quiz', 'key' => 'modulename', 'value' => 'Quiz'],
+            ['component' => 'mod_forum', 'key' => 'modulename'],
+            ['component' => 'mod_quiz', 'key' => 'modulename'],
         ]);
 
         $this->assertCount(2, $result);
@@ -76,8 +98,8 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->enable();
         $this->setUser(self::getDataGenerator()->create_user());
 
-        $first = $this->call([['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum']]);
-        $second = $this->call([['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum']]);
+        $first = $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
+        $second = $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
 
         $this->assertSame(1, $DB->count_records('local_langcrowd_strings'));
         $this->assertSame($first[0]['stringid'], $second[0]['stringid']);
@@ -89,13 +111,13 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->enable();
         $this->setUser(self::getDataGenerator()->create_user());
 
-        $first = $this->call([['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum']]);
+        $first = $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
         $sid = $first[0]['stringid'];
         $DB->insert_record('local_langcrowd_votes', (object)[
             'stringid' => $sid, 'userid' => $USER->id, 'vote' => 1, 'timecreated' => time(),
         ]);
 
-        $second = $this->call([['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum']]);
+        $second = $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
         $this->assertTrue($second[0]['voted']);
         $this->assertSame(1, $second[0]['vote']);
     }
@@ -107,8 +129,8 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->setUser(self::getDataGenerator()->create_user());
 
         $result = $this->call([
-            ['component' => 'mod_forum', 'key' => 'replies', 'value' => 'Replies'],
-            ['component' => 'mod_forum', 'key' => 'bad key with spaces!', 'value' => 'Bad'],
+            ['component' => 'mod_forum', 'key' => 'replies'],
+            ['component' => 'mod_forum', 'key' => 'bad key with spaces!'],
         ]);
 
         $this->assertCount(1, $result);
@@ -116,23 +138,14 @@ final class get_string_ids_test extends \advanced_testcase {
     }
 
     public function test_source_value_resolved_from_english_pack(): void {
-        global $CFG, $DB;
+        global $DB;
         $this->resetAfterTest();
         $this->enable();
         $this->setUser(self::getDataGenerator()->create_user());
+        $this->install_ja_pack(['modulename' => 'フォーラム']);
 
-        // Install a minimal 'ja' lang pack so PARAM_LANG accepts the language.
-        make_writable_directory($CFG->dataroot . '/lang/ja');
-        file_put_contents(
-            $CFG->dataroot . '/lang/ja/langconfig.php',
-            "<?php\n\$string['thislanguage'] = 'Japanese';\n"
-        );
-        get_string_manager()->reset_caches();
-
-        // A voter browsing in Japanese submits the value as rendered on their page,
-        // which is the existing translation, not the English source.
         $result = $this->call([
-            ['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'フォーラム'],
+            ['component' => 'mod_forum', 'key' => 'modulename'],
         ], 'ja');
 
         $rec = $DB->get_record(
@@ -143,8 +156,61 @@ final class get_string_ids_test extends \advanced_testcase {
         );
         $this->assertSame('ja', $rec->lang);
         $this->assertSame('Forum', $rec->sourcevalue);
-        $this->assertSame('フォーラム', $rec->currentvalue);
         $this->assertSame('Forum', $result[0]['source']);
+    }
+
+    public function test_currentvalue_resolved_server_side_from_lang_pack(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+        $this->install_ja_pack(['modulename' => 'フォーラム']);
+
+        $this->call([
+            ['component' => 'mod_forum', 'key' => 'modulename'],
+        ], 'ja');
+
+        $rec = $DB->get_record(
+            'local_langcrowd_strings',
+            ['component' => 'mod_forum', 'stringkey' => 'modulename'],
+            '*',
+            MUST_EXIST
+        );
+        $this->assertSame('フォーラム', $rec->currentvalue);
+    }
+
+    public function test_currentvalue_falls_back_to_english_when_untranslated(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+        $this->install_ja_pack();
+
+        $this->call([
+            ['component' => 'mod_quiz', 'key' => 'modulename'],
+        ], 'ja');
+
+        $rec = $DB->get_record(
+            'local_langcrowd_strings',
+            ['component' => 'mod_quiz', 'stringkey' => 'modulename'],
+            '*',
+            MUST_EXIST
+        );
+        $this->assertSame('Quiz', $rec->currentvalue);
+    }
+
+    public function test_client_supplied_value_rejected(): void {
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        // The 'value' field was removed from the service: a client (or attacker)
+        // sending one must fail parameter validation, never reach the DB.
+        $this->expectException(\invalid_parameter_exception::class);
+        $this->call([
+            ['component' => 'mod_forum', 'key' => 'modulename',
+             'value' => '<img src=x onerror=alert(document.cookie)>'],
+        ]);
     }
 
     public function test_strings_unknown_to_english_pack_skipped(): void {
@@ -154,7 +220,7 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->setUser(self::getDataGenerator()->create_user());
 
         $result = $this->call([
-            ['component' => 'mod_forum', 'key' => 'nosuchstringkey', 'value' => 'Whatever'],
+            ['component' => 'mod_forum', 'key' => 'nosuchstringkey'],
         ]);
 
         $this->assertCount(0, $result);
@@ -168,6 +234,6 @@ final class get_string_ids_test extends \advanced_testcase {
         $this->setUser(self::getDataGenerator()->create_user());
 
         $this->expectException(\moodle_exception::class);
-        $this->call([['component' => 'mod_forum', 'key' => 'modulename', 'value' => 'Forum']]);
+        $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
     }
 }

@@ -96,21 +96,20 @@ function xmldb_local_langcrowd_upgrade($oldversion) {
         // string as rendered in the voter's language), so wherever the target
         // language already had a translation the "English source" was not
         // English. Recompute it from the English lang pack.
-        $stringmanager = get_string_manager();
-        $rs = $DB->get_recordset('local_langcrowd_strings', null, '', 'id, component, stringkey, sourcevalue');
-        foreach ($rs as $rec) {
-            if (!$stringmanager->string_exists($rec->stringkey, $rec->component)) {
-                // Component uninstalled or string gone — nothing to recompute.
-                continue;
-            }
-            $english = $stringmanager->get_string($rec->stringkey, $rec->component, null, 'en');
-            if ($english !== $rec->sourcevalue) {
-                $DB->set_field('local_langcrowd_strings', 'sourcevalue', $english, ['id' => $rec->id]);
-            }
-        }
-        $rs->close();
+        require_once(__DIR__ . '/upgradelib.php');
+        local_langcrowd_upgrade_repair_sourcevalues();
 
         upgrade_plugin_savepoint(true, 2026071400, 'local', 'langcrowd');
+    }
+
+    if ($oldversion < 2026071700) {
+        // Security fix: currentvalue used to be the client-submitted rendered
+        // value and is now resolved server-side. Repair existing rows so no
+        // client-supplied (potentially malicious) value can ever be served.
+        require_once(__DIR__ . '/upgradelib.php');
+        local_langcrowd_upgrade_repair_currentvalues();
+
+        upgrade_plugin_savepoint(true, 2026071700, 'local', 'langcrowd');
     }
 
     return true;

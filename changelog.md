@@ -7,6 +7,40 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.2] — 2026-07-18
+
+### Security
+
+- **Stored XSS closed: string values are now resolved entirely server-side.** The
+  `get_string_ids` web service accepted the rendered string value from the client
+  (`PARAM_RAW`) and stored it as `currentvalue`, which the custom string manager
+  serves verbatim through `get_string()` once a string is locked or pushed —
+  and Moodle emits language strings unescaped. Any authenticated user with the
+  vote capability could therefore seed a script payload against a real string key
+  (e.g. `core/ok`) and have it execute for every user, administrators included,
+  once the string was promoted. The `value` field has been removed from the web
+  service and `currentvalue` is now resolved from the installed language packs on
+  the server, exactly as `sourcevalue` already was. An upgrade step recomputes
+  `currentvalue` for all pending records and for any locked/pushed record
+  containing markup, and deletes unrecoverable rows (unknown key + markup)
+  together with their votes and suggestions. As defence in depth, the string
+  manager now refuses to serve any promoted value containing HTML markup.
+  (Reported by MDL Shield review, 2026-07-17.)
+
+### Fixed
+
+- The language-pack exporter builds its temporary zip inside Moodle's managed
+  temp area (`make_request_directory()`) instead of the operating-system temp
+  directory, respecting `$CFG` temp configuration on clustered/containerised
+  deployments.
+
+### Added
+
+- README *Uninstalling* section: remove the `$CFG->customstringmanager` line from
+  `config.php` when uninstalling the plugin.
+
+---
+
 ## [0.3.1] — 2026-07-14
 
 ### Fixed

@@ -49,7 +49,6 @@ class get_string_ids extends external_api {
                 new external_single_structure([
                     'component' => new external_value(PARAM_COMPONENT, 'Component name'),
                     'key'       => new external_value(PARAM_RAW, 'String identifier'),
-                    'value'     => new external_value(PARAM_RAW, 'Rendered string value'),
                 ])
             ),
             'lang' => new external_value(PARAM_LANG, 'Target language code'),
@@ -178,9 +177,9 @@ class get_string_ids extends external_api {
                 continue;
             }
 
-            // Only register strings that really exist, and resolve the English
-            // source server-side: the client-submitted value is the string as
-            // rendered in the voter's language, not the English original.
+            // Only register strings that really exist. Both values are resolved
+            // server-side from the lang packs: currentvalue is what get_string()
+            // serves once a row is promoted, so it must never come from the client.
             if (!$stringmanager->string_exists($key, $comp)) {
                 continue;
             }
@@ -190,7 +189,7 @@ class get_string_ids extends external_api {
             $record->stringkey    = $key;
             $record->lang         = $lang;
             $record->sourcevalue  = $stringmanager->get_string($key, $comp, null, 'en');
-            $record->currentvalue = $strdata['value'];
+            $record->currentvalue = $stringmanager->get_string($key, $comp, null, $lang);
             $record->votecount    = 0;
             $record->status       = 'pending';
             $record->timecreated  = $now;
