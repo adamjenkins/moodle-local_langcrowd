@@ -1,0 +1,23 @@
+# camp listing manifest — descriptive content for your plugin's page.
+# Edit freely and commit; camp ingests this file at each tagged release.
+# Schema: https://camp-registry.org/schema/listing.schema.json
+name: local_langcrowd
+summary: A Moodle 5.2+ local plugin that lets your users collaboratively build and vote on language pack translations directly inside the Moodle interface — no external tools required.
+description: |
+  When crowdsourcing is enabled, users opt into a "translate mode" that
+  annotates on-screen language strings with two small badge buttons: approve
+  the current translation, or disagree and suggest an alternative. Approvals
+  count toward a configurable lock threshold, after which the translation is
+  served immediately as the active one; suggestions queue for admin review.
+  The target language follows the user's interface language.
+labels:
+  # Required disclosure labels — pick all that apply (RFC §4.7):
+  #   fully-free | freemium | paid-service | external-account
+  #   donation-supported | commercial-support-available
+  - fully-free
+# screenshots:
+#   - path: .camp/screenshots/overview.png
+#     caption: Main view
+# links:
+#   docs: https://…
+#   issues: https://…
