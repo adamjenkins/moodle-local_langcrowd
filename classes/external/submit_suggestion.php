@@ -67,31 +67,21 @@ class submit_suggestion extends external_api {
         self::validate_context($context);
         require_capability('local/langcrowd:suggest', $context);
 
-        // Straight quotes become typographic ones; anything else that could break out of
-        // an HTML attribute or a JavaScript string is refused (see text_safety).
-        $suggestion = text_safety::normalise($params['suggestion']);
-        if ($suggestion === '') {
-            throw new \invalid_parameter_exception('Suggestion cannot be empty.');
-        }
-        // The browser caps the textarea too, but that limit is advisory.
-        if (\core_text::strlen($suggestion) > text_safety::MAX_SUGGESTION_LENGTH) {
-            throw new \moodle_exception('suggestion_toolong', 'local_langcrowd', '', text_safety::MAX_SUGGESTION_LENGTH);
-        }
-        if (!text_safety::is_safe($suggestion)) {
-            throw new \moodle_exception('suggestion_unsafe', 'local_langcrowd');
-        }
+        $suggestion = self::clean_suggestion($params['suggestion']);
 
         // Verify the string record exists and read its language, component + status.
         $strrecord = $DB->get_record(
             'local_langcrowd_strings',
             ['id' => $params['stringid']],
-            'id, component, lang, status',
+            'id, component, lang, status, sourcevalue',
             MUST_EXIST
         );
 
         // Enforce the enabled/role/language/component gates server-side using the stored row.
         access::require_can_participate($USER->id, $strrecord->lang);
         access::require_component_allowed($strrecord->component);
+
+        self::require_same_placeholders($suggestion, (string)$strrecord->sourcevalue);
 
         // A locked string is settled; don't accept further suggestions against it.
         if ($strrecord->status === 'locked') {
@@ -140,6 +130,50 @@ class submit_suggestion extends external_api {
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * Normalises a suggestion and refuses text that is empty, too long or unsafe to serve.
+     *
+     * Straight quotes become typographic ones; anything else that could break out of an
+     * HTML attribute or a JavaScript string is refused (see text_safety). The browser caps
+     * the length too, but that limit is advisory.
+     *
+     * @param string $raw
+     * @return string the normalised suggestion
+     */
+    protected static function clean_suggestion(string $raw): string {
+        $suggestion = text_safety::normalise($raw);
+        if ($suggestion === '') {
+            throw new \invalid_parameter_exception('Suggestion cannot be empty.');
+        }
+        if (\core_text::strlen($suggestion) > text_safety::MAX_SUGGESTION_LENGTH) {
+            throw new \moodle_exception('suggestion_toolong', 'local_langcrowd', '', text_safety::MAX_SUGGESTION_LENGTH);
+        }
+        if (!text_safety::is_safe($suggestion)) {
+            throw new \moodle_exception('suggestion_unsafe', 'local_langcrowd');
+        }
+        return $suggestion;
+    }
+
+    /**
+     * Refuses a suggestion that does not keep exactly the source's placeholders ({$a->days}):
+     * once served, a value would go missing or a raw placeholder would show.
+     *
+     * @param string $suggestion
+     * @param string $source English source template
+     */
+    protected static function require_same_placeholders(string $suggestion, string $source): void {
+        if (text_safety::same_placeholders($suggestion, $source)) {
+            return;
+        }
+        $expected = array_unique(text_safety::placeholders($source));
+        throw new \moodle_exception(
+            'suggestion_placeholders',
+            'local_langcrowd',
+            '',
+            $expected ? implode(' ', $expected) : get_string('suggestion_placeholders_none', 'local_langcrowd')
+        );
     }
 
     /**

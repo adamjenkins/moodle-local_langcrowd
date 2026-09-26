@@ -90,7 +90,7 @@ final class exporter_test extends \advanced_testcase {
         $this->resetAfterTest();
         // Dollar signs and placeholders would be interpolated by naive double-quoted output.
         $tricky = 'Costs $5 for {$a} users; $x = 1;';
-        $this->make_string(['stringkey' => 'modulename', 'currentvalue' => $tricky]);
+        $this->make_string(['stringkey' => 'modulename', 'sourcevalue' => '{$a} users', 'currentvalue' => $tricky]);
 
         $entries = $this->zip_entries(exporter::export('en', [], 'all'));
         $string = $this->load_lang_file($entries['en/forum.php']);
@@ -236,5 +236,17 @@ final class exporter_test extends \advanced_testcase {
         $string = $this->load_lang_file($this->zip_entries(exporter::export('ja', [], 'all'))['ja/forum.php']);
 
         $this->assertSame(['modulenameplural' => 'Forums'], $string);
+    }
+
+    public function test_translation_that_breaks_placeholders_is_not_exported(): void {
+        $this->resetAfterTest();
+        $this->make_string(['component' => 'core', 'stringkey' => 'numdays', 'sourcevalue' => '{$a} days',
+            'currentvalue' => 'quelques jours']);
+        $this->make_string(['component' => 'core', 'stringkey' => 'numweeks', 'sourcevalue' => '{$a} weeks',
+            'currentvalue' => '{$a} semaines']);
+
+        $string = $this->load_lang_file($this->zip_entries(exporter::export('en', [], 'all'))['en/moodle.php']);
+
+        $this->assertSame(['numweeks' => '{$a} semaines'], $string);
     }
 }

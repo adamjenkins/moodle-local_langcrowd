@@ -307,4 +307,18 @@ final class manager_test extends \advanced_testcase {
 
         $this->assertSame('フォーラム', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
     }
+
+    public function test_apply_skips_suggestion_that_breaks_placeholders(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string([
+            'component' => 'core', 'stringkey' => 'numdays', 'sourcevalue' => '{$a} days', 'currentvalue' => '{$a} days',
+        ]);
+        $bad = $this->make_suggestion($sid, 'quelques jours');
+        $good = $this->make_suggestion($sid, '{$a} jours');
+
+        $this->assertNull(manager::apply_suggestion($bad, true));
+        $this->assertNotNull(manager::apply_suggestion($good, true));
+        $this->assertSame('{$a} jours', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
+    }
 }

@@ -58,4 +58,20 @@ final class text_safety_test extends \advanced_testcase {
     public function test_normalised_quotes_are_safe(): void {
         $this->assertTrue(text_safety::is_safe(text_safety::normalise('Say "hi", don\'t')));
     }
+
+    public function test_placeholders_are_not_breakout_characters(): void {
+        $this->assertTrue(text_safety::is_safe('Study on {$a->days} days, {$a} times'));
+        // A '>' outside a well-formed placeholder is still refused.
+        $this->assertFalse(text_safety::is_safe('{$a->days} > 3'));
+        $this->assertFalse(text_safety::is_safe('{$a->da"ys}'));
+    }
+
+    public function test_same_placeholders(): void {
+        $this->assertSame(['{$a->days}', '{$a->items}'], text_safety::placeholders('{$a->items} and {$a->days}'));
+        $this->assertTrue(text_safety::same_placeholders('{$a->items} y {$a->days}', '{$a->days} x {$a->items}'));
+        $this->assertTrue(text_safety::same_placeholders('plain', 'text'));
+        $this->assertFalse(text_safety::same_placeholders('{$a->days}', '{$a->days} {$a->items}'));
+        $this->assertFalse(text_safety::same_placeholders('{$a->day}', '{$a->days}'));
+        $this->assertFalse(text_safety::same_placeholders('3 days', '{$a} days'));
+    }
 }

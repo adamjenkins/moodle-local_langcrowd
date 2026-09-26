@@ -50,6 +50,8 @@ class hook_callbacks {
             'btn_suggest'          => get_string('btn_suggest', 'local_langcrowd'),
             'modal_suggest_title'  => get_string('modal_suggest_title', 'local_langcrowd'),
             'modal_original_label' => get_string('modal_original_label', 'local_langcrowd'),
+            'modal_placeholder_error' => get_string('modal_placeholder_error', 'local_langcrowd'),
+            'modal_placeholder_hint' => get_string('modal_placeholder_hint', 'local_langcrowd'),
             'modal_source_label'   => get_string('modal_source_label', 'local_langcrowd'),
             'modal_suggestion_label' => get_string('modal_suggestion_label', 'local_langcrowd'),
             'modal_submit'         => get_string('modal_submit', 'local_langcrowd'),

@@ -40,6 +40,9 @@ class text_safety {
     /** Maximum length of a suggestion, in characters (mirrors the textarea maxlength in voting.js). */
     public const MAX_SUGGESTION_LENGTH = 4096;
 
+    /** A string placeholder as core's get_string() substitutes it. */
+    public const PLACEHOLDER_PATTERN = '/\\{\\$a(?:->[A-Za-z0-9_]+)?\\}/';
+
     /** Characters that can break out of an HTML attribute or a JavaScript string ("\x60" is the backtick). */
     protected const UNSAFE_CHARS = ['<', '>', '"', "'", '\\', "\x60"];
 
@@ -68,6 +71,9 @@ class text_safety {
      * @return bool
      */
     public static function is_safe(string $text): bool {
+        // Placeholders ({$a}, {$a->name}) are filled in by the string manager, never printed
+        // as-is; the '>' of '->' is not a breakout character there.
+        $text = preg_replace(self::PLACEHOLDER_PATTERN, '', $text);
         foreach (self::UNSAFE_CHARS as $char) {
             if (strpos($text, $char) !== false) {
                 return false;
@@ -78,5 +84,33 @@ class text_safety {
         // references written without ';' (&quot), so refuse any ampersand followed by '#'
         // or an alphanumeric. A plain ampersand ("Terms & conditions") is fine.
         return !preg_match('/&[#a-z0-9]/i', $text);
+    }
+
+    /**
+     * The placeholders ({$a} and {$a->name}) a string template uses, sorted, with repeats.
+     *
+     * @param string $text
+     * @return string[]
+     */
+    public static function placeholders(string $text): array {
+        preg_match_all(self::PLACEHOLDER_PATTERN, $text, $matches);
+        $result = $matches[0];
+        sort($result);
+        return $result;
+    }
+
+    /**
+     * Whether a translation uses the same placeholders as its source (order may differ).
+     *
+     * A translation without {$a->days} would silently drop that value; one with an unknown
+     * placeholder would print it raw.
+     *
+     * @param string $translation
+     * @param string $source
+     * @return bool
+     */
+    public static function same_placeholders(string $translation, string $source): bool {
+        return array_values(array_unique(self::placeholders($translation)))
+            === array_values(array_unique(self::placeholders($source)));
     }
 }

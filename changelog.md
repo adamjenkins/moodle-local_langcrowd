@@ -7,6 +7,23 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Strings with placeholders can now be voted on and translated.** Strings such as
+  mod_rememberme's grading explanation ("…study on {$a->days} different days…") were
+  never annotated, because only strings without parameters were recorded. They are now
+  recorded with the text as it appears on the page (the same string can appear several
+  times with different values), and a promoted translation is served with its
+  placeholders filled in exactly as core does. A translation must keep exactly the
+  source's placeholders; otherwise it is refused at submission, skipped by Approve/Push,
+  not served and not exported.
+- The suggestion dialog starts pre-filled with the current translation (placeholders
+  included) so a suggestion is an edit of what is there; strings with placeholders show
+  a hint to keep them. Submitting the unedited text does nothing.
+- `get_string_ids` also returns the current translation template (`current`).
+
 ## [0.4.0] — 2026-09-26
 
 Version `2026092601`; the upgrade step runs at `2026092600` (see Upgrade notes in CHANGES.md).

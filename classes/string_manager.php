@@ -111,8 +111,10 @@ class string_manager extends \core_string_manager_standard {
     /**
      * Whether a promoted (locked/pushed) row may be served through get_string().
      *
-     * Only rows whose value actually differs from the source are worth serving.
-     * Values that could break out of their output context are never served:
+     * Only rows whose value actually differs from the source are worth serving, and
+     * only if they keep exactly the source's placeholders ({$a}, {$a->name}) — otherwise
+     * a value would go missing or a raw placeholder would show. Values that could break
+     * out of their output context are never served:
      * get_string() output is emitted unescaped throughout Moodle, including inside
      * HTML attributes and inline JavaScript (see text_safety). Refusing a row just
      * falls back to the lang pack's own value.
@@ -123,7 +125,8 @@ class string_manager extends \core_string_manager_standard {
     protected static function should_promote(\stdClass $rec): bool {
         $current = (string)$rec->currentvalue;
         return $current !== (string)$rec->sourcevalue
-            && text_safety::is_safe($current);
+            && text_safety::is_safe($current)
+            && text_safety::same_placeholders($current, (string)$rec->sourcevalue);
     }
 
     /**
@@ -142,22 +145,56 @@ class string_manager extends \core_string_manager_standard {
         $comp     = components::normalise((string)$component);
         $cachekey = $comp . '::' . $identifier;
 
-        // Serve a promoted (locked/pushed) translation when one exists and no substitution is needed.
-        if ($a === null && $lang === null && isset(self::$promotedstrings[$cachekey])) {
-            $result = self::$promotedstrings[$cachekey];
-            // Track the promoted value so DOM text nodes (which show the promoted text) match.
+        // Serve a promoted (locked/pushed) translation in the current language, filling in its
+        // placeholders ({$a}, {$a->name}) exactly as core does for a lang-pack string.
+        if ($lang === null && isset(self::$promotedstrings[$cachekey])) {
+            $result = self::substitute(self::$promotedstrings[$cachekey], $a);
+            // Track the rendered value so DOM text nodes (which show the promoted text) match.
             $this->maybe_track($comp, $identifier, $result);
             return $result;
         }
 
         $result = parent::get_string($identifier, $component, $a, $lang);
 
-        // Only track static strings (no parameter substitution).
-        if ($a === null) {
-            $this->maybe_track($comp, $identifier, $result);
-        }
+        // Parameterised strings are tracked too: the rendered value is what appears in the page,
+        // and the vote/suggestion is about the string's template, which the server resolves.
+        $this->maybe_track($comp, $identifier, $result);
 
         return $result;
+    }
+
+    /**
+     * Fills a string template's placeholders from $a, mirroring core_string_manager_standard::get_string().
+     *
+     * @param string $template
+     * @param mixed  $a
+     * @return string
+     */
+    protected static function substitute(string $template, $a): string {
+        if ($a === null) {
+            return $template;
+        }
+        if (self::is_scalar_like($a)) {
+            return str_replace('{$a}', (string)$a, $template);
+        }
+        $replacements = [];
+        foreach ((array)$a as $key => $value) {
+            // Like core: numeric keys and nested structures are not substituted.
+            if (!is_int($key) && self::is_scalar_like($value)) {
+                $replacements['{$a->' . $key . '}'] = (string)$value;
+            }
+        }
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
+    }
+
+    /**
+     * Whether a value is substituted as text (a scalar or a Stringable such as lang_string).
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    protected static function is_scalar_like($value): bool {
+        return !is_array($value) && (!is_object($value) || $value instanceof \Stringable);
     }
 
     /**
@@ -185,7 +222,8 @@ class string_manager extends \core_string_manager_standard {
         if (!self::is_trackable_value($value)) {
             return;
         }
-        $cachekey = $comp . '::' . $identifier;
+        // Keyed by value too: a parameterised string can appear several times with different values.
+        $cachekey = $comp . '::' . $identifier . '::' . $value;
         if (!isset(self::$pagestrings[$cachekey])) {
             self::$pagestrings[$cachekey] = [
                 'component' => $comp,

@@ -34,7 +34,8 @@ final class string_manager_test extends \advanced_testcase {
      * Resets the manager's per-request static state so tests cannot leak into each other.
      */
     protected function tearDown(): void {
-        foreach (['servecontext' => null, 'collectcontext' => null, 'promotedstrings' => null] as $name => $value) {
+        $defaults = ['servecontext' => null, 'collectcontext' => null, 'promotedstrings' => null, 'pagestrings' => []];
+        foreach ($defaults as $name => $value) {
             (new \ReflectionProperty(string_manager::class, $name))->setValue(null, $value);
         }
         parent::tearDown();
@@ -154,5 +155,40 @@ final class string_manager_test extends \advanced_testcase {
 
         $this->assertSame('Discussion board', $manager->get_string('modulename', 'forum'));
         $this->assertSame('Discussion board', $manager->get_string('modulename', 'mod_forum'));
+    }
+
+    public function test_parameterised_strings_are_tracked_with_their_rendered_value(): void {
+        $this->resetAfterTest();
+        $manager = $this->serving_manager();
+        // Collect as on a full page request (CLI_SCRIPT would otherwise switch collection off).
+        (new \ReflectionProperty(string_manager::class, 'collectcontext'))->setValue(null, true);
+
+        $manager->get_string('numdays', '', 3);
+        $manager->get_string('numdays', 'moodle', 5);
+        $manager->get_string('and', 'core', ['one' => 'Tea', 'two' => 'Cake']);
+
+        $tracked = array_map(fn($s) => $s['component'] . '/' . $s['key'] . '=' . $s['value'], string_manager::get_page_strings());
+        $this->assertEqualsCanonicalizing(['core/numdays=3 days', 'core/numdays=5 days', 'core/and=Tea and Cake'], $tracked);
+    }
+
+    public function test_promoted_template_is_served_with_values_filled_in(): void {
+        $this->resetAfterTest();
+        $this->promote('core', 'numdays', '{$a} jours');
+        $this->promote('core', 'and', '{$a->two} und {$a->one}');
+        $manager = $this->serving_manager();
+
+        $this->assertSame('5 jours', $manager->get_string('numdays', '', 5));
+        $this->assertSame('Cake und Tea', $manager->get_string('and', 'core', (object)['one' => 'Tea', 'two' => 'Cake']));
+    }
+
+    public function test_promoted_template_with_wrong_placeholders_is_not_served(): void {
+        $this->resetAfterTest();
+        // A dropped or unknown placeholder would lose a value or print it raw.
+        $this->promote('core', 'numdays', 'quelques jours');
+        $this->promote('core', 'and', '{$a->one} und {$a->three}');
+        $manager = $this->serving_manager();
+
+        $this->assertSame('5 days', $manager->get_string('numdays', '', 5));
+        $this->assertSame('Tea and Cake', $manager->get_string('and', 'core', ['one' => 'Tea', 'two' => 'Cake']));
     }
 }

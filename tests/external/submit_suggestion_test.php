@@ -269,4 +269,25 @@ final class submit_suggestion_test extends \advanced_testcase {
         }
         $this->assertSame(0, $DB->count_records('local_langcrowd_suggestions'));
     }
+
+    public function test_placeholders_must_be_kept(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+        $sid = $this->make_string([
+            'component' => 'core', 'stringkey' => 'numdays', 'sourcevalue' => '{$a} days', 'currentvalue' => '{$a} days',
+        ]);
+
+        try {
+            $this->call($sid, '3 jours');
+            $this->fail('A suggestion that drops a placeholder must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('suggestion_placeholders', $e->errorcode);
+        }
+        $this->assertSame(0, $DB->count_records('local_langcrowd_suggestions'));
+
+        $this->assertTrue($this->call($sid, '{$a} jours')['success']);
+        $this->assertSame('{$a} jours', $DB->get_field('local_langcrowd_suggestions', 'suggestion', ['stringid' => $sid]));
+    }
 }

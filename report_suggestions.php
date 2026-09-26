@@ -232,7 +232,11 @@ if (empty($records)) {
         // Suggestions stored before the intake rules existed may not be servable; say so
         // up front, since Approve/Push will skip them.
         $suggestioncell = s($rec->suggestion);
-        if (!\local_langcrowd\local\text_safety::is_safe(\local_langcrowd\local\text_safety::normalise((string)$rec->suggestion))) {
+        $normalised = \local_langcrowd\local\text_safety::normalise((string)$rec->suggestion);
+        if (
+            !\local_langcrowd\local\text_safety::is_safe($normalised)
+            || !\local_langcrowd\local\text_safety::same_placeholders($normalised, (string)$rec->sourcevalue)
+        ) {
             $suggestioncell .= ' ' . html_writer::span(
                 s(get_string('suggestion_unsafe_badge', 'local_langcrowd')),
                 'badge bg-warning text-dark'

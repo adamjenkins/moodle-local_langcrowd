@@ -88,9 +88,9 @@ class manager {
      * Apply a pending user suggestion as the string's active translation.
      *
      * Suggestions that are no longer pending (already applied or rejected) are left
-     * alone, and so is text that is not safe to serve: the text is normalised and
-     * re-checked here because rows stored by older versions never passed the intake
-     * rules (see text_safety).
+     * alone, and so is text that is not safe to serve or does not keep the source's
+     * placeholders: the text is normalised and re-checked here because rows stored by
+     * older versions never passed the intake rules (see text_safety).
      *
      * @param int  $suggestionid
      * @param bool $lock true to lock immediately (Approve), false to serve while voting continues (Push).
@@ -103,7 +103,8 @@ class manager {
             return null;
         }
         $value = text_safety::normalise((string)$suggestion->suggestion);
-        if ($value === '' || !text_safety::is_safe($value)) {
+        $source = (string)$DB->get_field('local_langcrowd_strings', 'sourcevalue', ['id' => $suggestion->stringid]);
+        if ($value === '' || !text_safety::is_safe($value) || !text_safety::same_placeholders($value, $source)) {
             return null;
         }
         $DB->update_record('local_langcrowd_strings', (object)[

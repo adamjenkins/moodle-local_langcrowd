@@ -273,6 +273,7 @@ class get_string_ids extends external_api {
                 'voted'     => $voted,
                 'vote'      => $voted ? $votesbystringid[$sid] : 0,
                 'source'    => (string)$rec->sourcevalue,
+                'current'   => (string)$rec->currentvalue,
             ];
         }
         return $result;
@@ -294,6 +295,7 @@ class get_string_ids extends external_api {
                 'voted'     => new external_value(PARAM_BOOL, 'Whether the current user has already voted'),
                 'vote'      => new external_value(PARAM_INT, 'User vote: 1, -1, or 0 if not voted'),
                 'source'    => new external_value(PARAM_RAW, 'The English source value for this string'),
+                'current'   => new external_value(PARAM_RAW, 'The current translation as a template, placeholders included'),
             ])
         );
     }

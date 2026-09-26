@@ -47,8 +47,10 @@ and the buttons for that phrase disappear. Changed your mind? A short-lived
 ### Suggesting a better translation
 
 Click the red **✗**. A dialog opens showing the English source and the current
-text, with a box for your suggestion. Type your improved translation and click
-**Submit suggestion**. Your suggestion goes to an administrator, and a "this needs
+text, with a box already filled in with the current translation — edit it and click
+**Submit suggestion**. Some texts contain placeholders in curly brackets, such as
+`{$a->days}`, where Moodle fills in a value (the number you see on the page); keep each
+placeholder exactly as it is, in whatever position suits your language. Your suggestion goes to an administrator, and a "this needs
 work" vote is recorded at the same time. Press **Esc** or **Cancel** to close
 without submitting.
 

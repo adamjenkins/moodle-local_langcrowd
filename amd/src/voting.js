@@ -148,8 +148,16 @@ define([
         var data = window.langcrowdInit;
         // The service only takes component + key; rendered values stay client-side
         // for DOM matching (the server resolves values from the lang packs itself).
-        var keys = data.strings.map(function(s) {
-            return {component: s.component, key: s.key};
+        // A parameterised string can appear several times with different values: send each
+        // component/key once, then map every rendered value back to its record.
+        var seen = {};
+        var keys = [];
+        data.strings.forEach(function(s) {
+            var id = s.component + '::' + s.key;
+            if (!seen[id]) {
+                seen[id] = true;
+                keys.push({component: s.component, key: s.key});
+            }
         });
         Ajax.call([{
             methodname: 'local_langcrowd_get_string_ids',
@@ -159,12 +167,11 @@ define([
                 if (item.status === 'locked' || item.voted) {
                     return;
                 }
-                var pageStr = data.strings.find(function(s) {
-                    return s.component === item.component && s.key === item.key;
+                data.strings.forEach(function(s) {
+                    if (s.component === item.component && s.key === item.key) {
+                        stringMap.set(s.value, item);
+                    }
                 });
-                if (pageStr) {
-                    stringMap.set(pageStr.value, item);
-                }
             });
 
             if (stringMap.size > 0) {
@@ -251,7 +258,7 @@ define([
                 '[data-activityname], [data-region="course-index-section"], ' +
                 '.block_myoverview, .block_timeline, ' +
                 '.navbar, .fixed-top, .fixed-bottom, [data-region="drawer"], ' +
-                '.drawer, nav.navbar, footer, .footer, #page-footer, #langcrowd-toggle')) {
+                '.drawer, nav.navbar, footer, .footer, #page-footer, #langcrowd-toggle, .langcrowd-modal')) {
             return NodeFilter.FILTER_REJECT;
         }
         if (parent.closest('.langcrowd-wrap')) {
@@ -433,6 +440,19 @@ define([
     }
 
     /**
+     * The distinct placeholders ({$a}, {$a->name}) in a string template, sorted.
+     *
+     * @param  {string} text
+     * @return {string[]}
+     */
+    function placeholdersOf(text) {
+        var found = text.match(/\{\$a(->[A-Za-z0-9_]+)?\}/g) || [];
+        return found.filter(function(p, i) {
+            return found.indexOf(p) === i;
+        }).sort();
+    }
+
+    /**
      * Sends the suggestion typed into the modal, then closes it.
      *
      * @param {Object}  modal The core/modal instance.
@@ -440,11 +460,24 @@ define([
      * @param {Element} wrap  The annotation wrapper.
      */
     function submitSuggestion(modal, info, wrap) {
-        var textarea = modal.getRoot()[0].querySelector('#lc-suggestion');
+        var root = modal.getRoot()[0];
+        var textarea = root.querySelector('#lc-suggestion');
+        var errorbox = root.querySelector('#lc-suggestion-error');
         var suggestion = (textarea.value || '').trim();
-        if (!suggestion) {
+        // The box starts pre-filled with the current translation; unedited is not a suggestion.
+        if (!suggestion || suggestion === (info.current || '').trim()) {
             return;
         }
+        // Catch a dropped or altered placeholder here, with a readable message; the server
+        // enforces the same rule.
+        var expected = placeholdersOf(info.source || '');
+        if (expected.join(' ') !== placeholdersOf(suggestion).join(' ')) {
+            errorbox.textContent = (ui.modal_placeholder_error || '') + ' ' + expected.join(' ');
+            errorbox.hidden = false;
+            textarea.focus();
+            return;
+        }
+        errorbox.hidden = true;
         Ajax.call([{
             methodname: 'local_langcrowd_submit_suggestion',
             args: {stringid: info.stringid, suggestion: suggestion},
@@ -466,7 +499,8 @@ define([
      * @param {Element} wrap         The annotation wrapper.
      */
     function openModal(info, originalText, wrap) {
-        var body = '<div>';
+        // Marked so the DOM scanner never annotates the dialog's own copy of the string.
+        var body = '<div class="langcrowd-modal">';
         // Show the English source only when it differs from what's on screen.
         if (info.source && info.source !== originalText) {
             body += '<p class="mb-1"><strong>' + escapeHtml(ui.modal_source_label || 'English source') +
@@ -475,8 +509,14 @@ define([
         body += '<p class="mb-1"><strong>' + escapeHtml(ui.modal_original_label || 'Current translation') +
             '</strong></p><p class="text-muted">' + escapeHtml(originalText) + '</p>' +
             '<label for="lc-suggestion" class="fw-bold">' +
-            escapeHtml(ui.modal_suggestion_label || 'Your suggestion') + '</label>' +
-            '<textarea id="lc-suggestion" class="form-control" rows="3" maxlength="4096"></textarea>' +
+            escapeHtml(ui.modal_suggestion_label || 'Your suggestion') + '</label>';
+        // A parameterised string: the suggestion must keep its {...} placeholders.
+        var hasplaceholders = /\{\$a(->[A-Za-z0-9_]+)?\}/.test(info.source || '');
+        if (hasplaceholders) {
+            body += '<p class="small text-muted mb-1">' + escapeHtml(ui.modal_placeholder_hint || '') + '</p>';
+        }
+        body += '<textarea id="lc-suggestion" class="form-control" rows="3" maxlength="4096"></textarea>' +
+            '<div id="lc-suggestion-error" class="text-danger small mt-1" role="alert" hidden></div>' +
             '</div>';
 
         ModalSaveCancel.create({
@@ -485,6 +525,17 @@ define([
         }).then(function(modal) {
             modal.setSaveButtonText(ui.modal_submit || 'Submit suggestion');
             modal.setRemoveOnClose(true);
+            // Start from the current translation as a template (placeholders included), so a
+            // suggestion is an edit of what is there. Set as a property, never as HTML; the
+            // body may render asynchronously, so retry once shown, never overwriting typing.
+            var prefill = function() {
+                var textarea = modal.getRoot()[0].querySelector('#lc-suggestion');
+                if (textarea && !textarea.value) {
+                    textarea.value = info.current || originalText;
+                }
+            };
+            prefill();
+            modal.getRoot().on(ModalEvents.shown, prefill);
 
             modal.getRoot().on(ModalEvents.save, function(e) {
                 e.preventDefault();

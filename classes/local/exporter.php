@@ -162,7 +162,10 @@ class exporter {
         if ($rec->lang !== 'en' && $value === (string)$rec->sourcevalue && $installed !== null && $installed !== $value) {
             return false;
         }
-        return text_safety::is_safe($value) || $installed === $value;
+        if ($installed === $value) {
+            return true;
+        }
+        return text_safety::is_safe($value) && text_safety::same_placeholders($value, (string)$rec->sourcevalue);
     }
 
     /**

@@ -283,4 +283,15 @@ final class get_string_ids_test extends \advanced_testcase {
 
         $this->assertSame(['mod_forum'], array_values($DB->get_fieldset_select('local_langcrowd_strings', 'component', '1 = 1')));
     }
+
+    public function test_returns_the_current_template(): void {
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        $result = $this->call([['component' => 'core', 'key' => 'numdays']]);
+
+        $this->assertSame('{$a} days', $result[0]['source']);
+        $this->assertSame('{$a} days', $result[0]['current']);
+    }
 }
