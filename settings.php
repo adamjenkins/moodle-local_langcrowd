@@ -24,38 +24,40 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// The report pages are gated on local/langcrowd:admin, which managers hold without
+// moodle/site:config, so the category and pages are registered for everyone and each
+// page enforces its own capability (core precedent: report_log).
+$ADMIN->add('localplugins', new admin_category('local_langcrowd_cat', get_string('pluginname', 'local_langcrowd')));
 if ($hassiteconfig) {
-    $category = new admin_category('local_langcrowd_cat', get_string('pluginname', 'local_langcrowd'));
-    $ADMIN->add('localplugins', $category);
-
     $settings = new admin_settingpage('local_langcrowd', get_string('settings', 'local_langcrowd'));
     $ADMIN->add('local_langcrowd_cat', $settings);
+}
+$ADMIN->add('local_langcrowd_cat', new admin_externalpage(
+    'local_langcrowd_overview',
+    get_string('overview', 'local_langcrowd'),
+    new moodle_url('/local/langcrowd/overview.php'),
+    'local/langcrowd:admin'
+));
+$ADMIN->add('local_langcrowd_cat', new admin_externalpage(
+    'local_langcrowd_report_voting',
+    get_string('report_voting', 'local_langcrowd'),
+    new moodle_url('/local/langcrowd/report_voting.php'),
+    'local/langcrowd:admin'
+));
+$ADMIN->add('local_langcrowd_cat', new admin_externalpage(
+    'local_langcrowd_report_suggestions',
+    get_string('report_suggestions', 'local_langcrowd'),
+    new moodle_url('/local/langcrowd/report_suggestions.php'),
+    'local/langcrowd:admin'
+));
+$ADMIN->add('local_langcrowd_cat', new admin_externalpage(
+    'local_langcrowd_export',
+    get_string('export', 'local_langcrowd'),
+    new moodle_url('/local/langcrowd/export.php'),
+    'local/langcrowd:admin'
+));
 
-    $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
-        'local_langcrowd_overview',
-        get_string('overview', 'local_langcrowd'),
-        new moodle_url('/local/langcrowd/overview.php'),
-        'local/langcrowd:admin'
-    ));
-    $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
-        'local_langcrowd_report_voting',
-        get_string('report_voting', 'local_langcrowd'),
-        new moodle_url('/local/langcrowd/report_voting.php'),
-        'local/langcrowd:admin'
-    ));
-    $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
-        'local_langcrowd_report_suggestions',
-        get_string('report_suggestions', 'local_langcrowd'),
-        new moodle_url('/local/langcrowd/report_suggestions.php'),
-        'local/langcrowd:admin'
-    ));
-    $ADMIN->add('local_langcrowd_cat', new admin_externalpage(
-        'local_langcrowd_export',
-        get_string('export', 'local_langcrowd'),
-        new moodle_url('/local/langcrowd/export.php'),
-        'local/langcrowd:admin'
-    ));
-
+if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         // Show whether the custom string manager is wired up.
         $manager = get_string_manager();
@@ -161,10 +163,12 @@ if ($hassiteconfig) {
             $langoptions
         ));
 
-        // Components are discovered from the strings seen so far. Include any currently
-        // selected values that are no longer in that set so a saved selection persists.
+        // Offer every installed component, not just those whose strings were already seen:
+        // once a selection is saved, strings of unselected components are never recorded,
+        // so a component that had not been seen yet could otherwise never be chosen.
+        // Keep any saved value that is no longer installed so the selection persists.
         $componentoptions = [];
-        foreach (\local_langcrowd\local\exporter::get_all_components() as $c) {
+        foreach (\local_langcrowd\local\components::installed() as $c) {
             $componentoptions[$c] = $c;
         }
         $selectedcomponents = get_config('local_langcrowd', 'allowed_components');

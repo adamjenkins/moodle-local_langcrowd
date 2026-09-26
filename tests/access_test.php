@@ -26,10 +26,9 @@ namespace local_langcrowd;
 
 /**
  * Unit tests for the participation gate.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\access
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\access::class)]
 final class access_test extends \advanced_testcase {
     public function test_is_enabled_reflects_config(): void {
         $this->resetAfterTest();

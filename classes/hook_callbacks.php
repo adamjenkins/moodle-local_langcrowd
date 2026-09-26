@@ -109,7 +109,8 @@ class hook_callbacks {
         if (!get_config('local_langcrowd', 'showadminlink')) {
             return;
         }
-        if (!has_capability('moodle/site:config', \context_system::instance())) {
+        // Same gate as the pages the link leads to.
+        if (!has_capability('local/langcrowd:admin', \context_system::instance())) {
             return;
         }
         $hook->get_primaryview()->add(

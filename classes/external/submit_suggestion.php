@@ -29,6 +29,7 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_langcrowd\access;
+use local_langcrowd\local\text_safety;
 
 /**
  * Stores an alternative translation suggestion and records a reject vote.
@@ -66,21 +67,31 @@ class submit_suggestion extends external_api {
         self::validate_context($context);
         require_capability('local/langcrowd:suggest', $context);
 
-        $suggestion = trim($params['suggestion']);
+        // Straight quotes become typographic ones; anything else that could break out of
+        // an HTML attribute or a JavaScript string is refused (see text_safety).
+        $suggestion = text_safety::normalise($params['suggestion']);
         if ($suggestion === '') {
             throw new \invalid_parameter_exception('Suggestion cannot be empty.');
         }
+        // The browser caps the textarea too, but that limit is advisory.
+        if (\core_text::strlen($suggestion) > text_safety::MAX_SUGGESTION_LENGTH) {
+            throw new \moodle_exception('suggestion_toolong', 'local_langcrowd', '', text_safety::MAX_SUGGESTION_LENGTH);
+        }
+        if (!text_safety::is_safe($suggestion)) {
+            throw new \moodle_exception('suggestion_unsafe', 'local_langcrowd');
+        }
 
-        // Verify the string record exists and read its language + status.
+        // Verify the string record exists and read its language, component + status.
         $strrecord = $DB->get_record(
             'local_langcrowd_strings',
             ['id' => $params['stringid']],
-            'id, lang, status',
+            'id, component, lang, status',
             MUST_EXIST
         );
 
-        // Enforce the enabled/role/language gate server-side using the string's language.
+        // Enforce the enabled/role/language/component gates server-side using the stored row.
         access::require_can_participate($USER->id, $strrecord->lang);
+        access::require_component_allowed($strrecord->component);
 
         // A locked string is settled; don't accept further suggestions against it.
         if ($strrecord->status === 'locked') {
@@ -89,14 +100,29 @@ class submit_suggestion extends external_api {
 
         $now = time();
 
-        $row               = new \stdClass();
-        $row->stringid     = $params['stringid'];
-        $row->userid       = $USER->id;
-        $row->suggestion   = $suggestion;
-        $row->status       = 'pending';
-        $row->timecreated  = $now;
-        $row->timemodified = $now;
-        $DB->insert_record('local_langcrowd_suggestions', $row);
+        // One pending suggestion per user and string: a new one replaces the previous,
+        // so repeated calls cannot flood the table or the admin report.
+        $existing = $DB->get_record('local_langcrowd_suggestions', [
+            'stringid' => $params['stringid'],
+            'userid'   => $USER->id,
+            'status'   => 'pending',
+        ], 'id', IGNORE_MULTIPLE);
+        if ($existing) {
+            $DB->update_record('local_langcrowd_suggestions', (object)[
+                'id'           => $existing->id,
+                'suggestion'   => $suggestion,
+                'timemodified' => $now,
+            ]);
+        } else {
+            $row               = new \stdClass();
+            $row->stringid     = $params['stringid'];
+            $row->userid       = $USER->id;
+            $row->suggestion   = $suggestion;
+            $row->status       = 'pending';
+            $row->timecreated  = $now;
+            $row->timemodified = $now;
+            $DB->insert_record('local_langcrowd_suggestions', $row);
+        }
 
         // Record a reject vote if the user has not yet voted on this string.
         if (!$DB->record_exists('local_langcrowd_votes', ['stringid' => $params['stringid'], 'userid' => $USER->id])) {

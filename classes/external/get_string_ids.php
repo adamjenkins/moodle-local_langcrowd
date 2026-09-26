@@ -30,6 +30,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_langcrowd\access;
+use local_langcrowd\local\components;
 
 /**
  * Registers page strings in the DB (if new) and returns IDs + user's votes.
@@ -80,6 +81,12 @@ class get_string_ids extends external_api {
         if (count($params['strings']) > self::MAX_STRINGS_PER_CALL) {
             $params['strings'] = array_slice($params['strings'], 0, self::MAX_STRINGS_PER_CALL);
         }
+
+        // Store one row per string however the component was spelled ('forum' vs 'mod_forum').
+        foreach ($params['strings'] as &$strdata) {
+            $strdata['component'] = components::normalise($strdata['component']);
+        }
+        unset($strdata);
 
         // Drop any components the admin has excluded (defends the filter server-side).
         $params['strings'] = array_values(array_filter(

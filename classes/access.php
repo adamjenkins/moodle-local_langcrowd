@@ -24,6 +24,8 @@
 
 namespace local_langcrowd;
 
+use local_langcrowd\local\components;
+
 /**
  * Central place for the "may this user take part in crowdsourcing?" decision.
  *
@@ -93,6 +95,8 @@ class access {
     /**
      * Whether crowdsourcing is enabled for the given component.
      *
+     * Both sides are normalised, so 'forum' matches a selected 'mod_forum'.
+     *
      * @param string $component
      * @return bool
      */
@@ -101,7 +105,20 @@ class access {
         if (empty($allowedcomponents)) {
             return true;
         }
-        return in_array($component, explode(',', $allowedcomponents), true);
+        return in_array(components::normalise($component), components::normalise_list($allowedcomponents), true);
+    }
+
+    /**
+     * Throws unless crowdsourcing is enabled for the given component; call from external functions
+     * that act on an existing string row, so excluding a component also freezes its votes/suggestions.
+     *
+     * @param string $component
+     * @throws \moodle_exception
+     */
+    public static function require_component_allowed(string $component): void {
+        if (!self::component_is_allowed($component)) {
+            throw new \moodle_exception('nopermissions', 'error', '', get_string('pluginname', 'local_langcrowd'));
+        }
     }
 
     /**

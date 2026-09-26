@@ -40,6 +40,9 @@ $capabilities = [
         ],
     ],
     'local/langcrowd:admin' => [
+        // Approving a suggestion turns user-written text into a site-wide language string,
+        // the same trust level as core's tool/customlang:edit.
+        'riskbitmask'  => RISK_CONFIG | RISK_XSS,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes'   => [

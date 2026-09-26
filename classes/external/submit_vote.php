@@ -72,8 +72,9 @@ class submit_vote extends external_api {
 
         $strrecord = $DB->get_record('local_langcrowd_strings', ['id' => $params['stringid']], '*', MUST_EXIST);
 
-        // Enforce the enabled/role/language gate server-side using the string's language.
+        // Enforce the enabled/role/language/component gates server-side using the stored row.
         access::require_can_participate($USER->id, $strrecord->lang);
+        access::require_component_allowed($strrecord->component);
 
         if ($strrecord->status === 'locked') {
             return [
@@ -129,17 +130,26 @@ class submit_vote extends external_api {
 
         $newstatus = self::resolve_status($strrecord->status, $params['vote'], $votecount);
 
-        $DB->update_record('local_langcrowd_strings', (object)[
-            'id'           => $params['stringid'],
-            'votecount'    => $votecount,
-            'status'       => $newstatus,
-            'timemodified' => $now,
-        ]);
+        // Write only if the status is still the one we read: an admin lock, push or
+        // revert that landed in between must win over this vote's stale view.
+        $DB->execute(
+            "UPDATE {local_langcrowd_strings}
+                SET votecount = :votecount, status = :newstatus, timemodified = :now
+              WHERE id = :id AND status = :oldstatus",
+            [
+                'votecount' => $votecount,
+                'newstatus' => $newstatus,
+                'now'       => $now,
+                'id'        => $params['stringid'],
+                'oldstatus' => $strrecord->status,
+            ]
+        );
+        $current = $DB->get_record('local_langcrowd_strings', ['id' => $params['stringid']], 'votecount, status', MUST_EXIST);
 
         return [
             'success'   => true,
-            'votecount' => $votecount,
-            'status'    => $newstatus,
+            'votecount' => (int)$current->votecount,
+            'status'    => $current->status,
         ];
     }
 

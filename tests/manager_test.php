@@ -26,10 +26,9 @@ namespace local_langcrowd;
 
 /**
  * Unit tests for the string/suggestion manager.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\manager
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\manager::class)]
 final class manager_test extends \advanced_testcase {
     /**
      * Inserts a string row and returns its id.
@@ -199,5 +198,113 @@ final class manager_test extends \advanced_testcase {
         foreach ($ids as $id) {
             $this->assertSame('rejected', $DB->get_field('local_langcrowd_suggestions', 'status', ['id' => $id]));
         }
+    }
+
+    /**
+     * Inserts a suggestion for the given string and returns its id.
+     *
+     * @param int    $stringid
+     * @param string $text
+     * @param string $status
+     * @return int
+     */
+    private function make_suggestion(int $stringid, string $text, string $status = 'pending'): int {
+        global $DB;
+        return $DB->insert_record('local_langcrowd_suggestions', (object)[
+            'stringid' => $stringid, 'userid' => self::getDataGenerator()->create_user()->id,
+            'suggestion' => $text, 'status' => $status,
+            'timecreated' => time(), 'timemodified' => time(),
+        ]);
+    }
+
+    public function test_apply_skips_suggestion_that_is_not_pending(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        $sugid = $this->make_suggestion($sid, 'Board', 'rejected');
+
+        $this->assertNull(manager::apply_suggestion($sugid, true));
+
+        $this->assertSame('pending', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $sid]));
+        $this->assertSame('Forum', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
+        $this->assertSame('rejected', $DB->get_field('local_langcrowd_suggestions', 'status', ['id' => $sugid]));
+    }
+
+    public function test_apply_skips_legacy_unsafe_suggestion(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        // Stored by an older version, before intake refused such text.
+        $sugid = $this->make_suggestion($sid, 'Forum&quot; onfocus=&quot;alert(1)');
+
+        $this->assertNull(manager::apply_suggestion($sugid, false));
+
+        $this->assertSame('Forum', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
+        $this->assertSame('pending', $DB->get_field('local_langcrowd_suggestions', 'status', ['id' => $sugid]));
+    }
+
+    public function test_apply_converts_straight_quotes_of_legacy_suggestion(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        $sugid = $this->make_suggestion($sid, 'Forum" onfocus="alert(1)');
+
+        $this->assertNotNull(manager::apply_suggestion($sugid, true));
+
+        // Quotes can no longer break out of an attribute once converted.
+        $this->assertSame(
+            "Forum\u{201C} onfocus=\u{201D}alert(1)",
+            $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid])
+        );
+    }
+
+    public function test_bulk_apply_and_reject_count_only_what_changed(): void {
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        $pending = $this->make_suggestion($sid, 'Board');
+        $done = $this->make_suggestion($sid, 'Other', 'promoted');
+        $unsafe = $this->make_suggestion($sid, 'a < b');
+
+        $this->assertSame(1, manager::apply_suggestions([$pending, $done, $unsafe], true));
+        $this->assertSame(1, manager::reject_suggestions([$pending, $done, $unsafe]));
+    }
+
+    public function test_recount_votes(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string(['votecount' => 9]);
+        $this->add_approves($sid, 2);
+
+        manager::recount_votes([$sid, $sid]);
+
+        $this->assertSame(2, (int)$DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $sid]));
+    }
+
+    /**
+     * Installs a minimal 'ja' lang pack in the test dataroot with the given mod_forum strings.
+     *
+     * @param array $forumstrings
+     */
+    private function install_ja_pack(array $forumstrings): void {
+        global $CFG;
+        make_writable_directory($CFG->dataroot . '/lang/ja');
+        file_put_contents($CFG->dataroot . '/lang/ja/langconfig.php', "<?php\n\$string['thislanguage'] = 'Japanese';\n");
+        $content = "<?php\n";
+        foreach ($forumstrings as $key => $value) {
+            $content .= '$string[' . var_export($key, true) . '] = ' . var_export($value, true) . ";\n";
+        }
+        file_put_contents($CFG->dataroot . '/lang/ja/forum.php', $content);
+        get_string_manager()->reset_caches();
+    }
+
+    public function test_revert_restores_the_target_language_value_not_english(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->install_ja_pack(['modulename' => 'フォーラム']);
+        $sid = $this->make_string(['lang' => 'ja', 'status' => 'locked', 'currentvalue' => '掲示板']);
+
+        manager::revert_string($sid);
+
+        $this->assertSame('フォーラム', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
     }
 }

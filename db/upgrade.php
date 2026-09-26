@@ -112,5 +112,19 @@ function xmldb_local_langcrowd_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026071700, 'local', 'langcrowd');
     }
 
+    if ($oldversion < 2026092600) {
+        // Merge rows split by component spelling ('forum' vs 'mod_forum'), keep one pending
+        // suggestion per user and string, and convert straight quotes in curated values so
+        // they pass the stricter serving guard. See db/upgradelib.php for details.
+        require_once(__DIR__ . '/upgradelib.php');
+        local_langcrowd_upgrade_normalise_components();
+        local_langcrowd_upgrade_dedupe_pending_suggestions();
+        local_langcrowd_upgrade_normalise_promoted_values();
+        // Revert used to reset currentvalue to English: recompute pending rows from the lang packs.
+        local_langcrowd_upgrade_repair_currentvalues();
+
+        upgrade_plugin_savepoint(true, 2026092600, 'local', 'langcrowd');
+    }
+
     return true;
 }

@@ -26,10 +26,9 @@ namespace local_langcrowd\task;
 
 /**
  * Unit tests for the aggregate_votes scheduled task.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\task\aggregate_votes
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\task\aggregate_votes::class)]
 final class aggregate_votes_test extends \advanced_testcase {
     /**
      * Inserts a string row and returns its id.
@@ -138,7 +137,7 @@ final class aggregate_votes_test extends \advanced_testcase {
         $this->assertSame(0, (int)$rec->votecount);
     }
 
-    public function test_noop_when_threshold_zero(): void {
+    public function test_threshold_zero_recounts_but_never_locks(): void {
         global $DB;
         $this->resetAfterTest();
         set_config('threshold', 0, 'local_langcrowd');
@@ -147,7 +146,24 @@ final class aggregate_votes_test extends \advanced_testcase {
 
         (new aggregate_votes())->execute();
 
-        // With threshold disabled the task returns early; votecount stays as seeded (0).
-        $this->assertSame('pending', $DB->get_field('local_langcrowd_strings', 'status', ['id' => $sid]));
+        // With the threshold disabled nothing locks, but the count is still kept accurate.
+        $rec = $DB->get_record('local_langcrowd_strings', ['id' => $sid]);
+        $this->assertSame('pending', $rec->status);
+        $this->assertSame(3, (int)$rec->votecount);
+    }
+
+    public function test_locked_string_count_heals_after_votes_deleted(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('threshold', 2, 'local_langcrowd');
+        // A locked row whose stored count is stale (its voters were deleted, e.g. by a privacy request).
+        $sid = $this->make_string(['status' => 'locked', 'votecount' => 5]);
+        $this->add_approves($sid, 1);
+
+        (new aggregate_votes())->execute();
+
+        $rec = $DB->get_record('local_langcrowd_strings', ['id' => $sid]);
+        $this->assertSame('locked', $rec->status, 'the task never unlocks');
+        $this->assertSame(1, (int)$rec->votecount);
     }
 }

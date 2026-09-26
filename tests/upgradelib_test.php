@@ -30,11 +30,14 @@ global $CFG;
 require_once($CFG->dirroot . '/local/langcrowd/db/upgradelib.php');
 
 /**
- * Unit tests for local_langcrowd_upgrade_repair_currentvalues().
- *
- * @group local_langcrowd
- * @covers ::local_langcrowd_upgrade_repair_currentvalues
+ * Unit tests for the upgrade helpers in db/upgradelib.php.
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_repair_sourcevalues')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_repair_currentvalues')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_normalise_components')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_normalise_promoted_values')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_dedupe_pending_suggestions')]
 final class upgradelib_test extends \advanced_testcase {
     /**
      * Inserts a string record with the given fields and returns its id.
@@ -184,9 +187,129 @@ final class upgradelib_test extends \advanced_testcase {
 
         local_langcrowd_upgrade_repair_sourcevalues();
 
-        $this->assertSame('Forum',
-            $DB->get_field('local_langcrowd_strings', 'sourcevalue', ['id' => $id]));
-        $this->assertSame('Whatever',
-            $DB->get_field('local_langcrowd_strings', 'sourcevalue', ['id' => $orphan]));
+        $this->assertSame('Forum', $DB->get_field('local_langcrowd_strings', 'sourcevalue', ['id' => $id]));
+        $this->assertSame('Whatever', $DB->get_field('local_langcrowd_strings', 'sourcevalue', ['id' => $orphan]));
+    }
+
+    /**
+     * Adds a vote row.
+     *
+     * @param int $stringid
+     * @param int $userid
+     * @param int $vote
+     */
+    private function vote(int $stringid, int $userid, int $vote = 1): void {
+        global $DB;
+        $DB->insert_record('local_langcrowd_votes', (object)[
+            'stringid' => $stringid, 'userid' => $userid, 'vote' => $vote, 'timecreated' => time(),
+        ]);
+    }
+
+    public function test_normalise_components_renames_unsplit_rows(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $id = $this->insert_string(['component' => 'forum']);
+        $coreid = $this->insert_string(['component' => 'moodle', 'stringkey' => 'login', 'sourcevalue' => 'Log in']);
+
+        local_langcrowd_upgrade_normalise_components();
+
+        $this->assertSame('mod_forum', $DB->get_field('local_langcrowd_strings', 'component', ['id' => $id]));
+        $this->assertSame('core', $DB->get_field('local_langcrowd_strings', 'component', ['id' => $coreid]));
+    }
+
+    public function test_normalise_components_merges_split_rows(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $u1 = self::getDataGenerator()->create_user()->id;
+        $u2 = self::getDataGenerator()->create_user()->id;
+        $u3 = self::getDataGenerator()->create_user()->id;
+
+        // The same string recorded twice: the short spelling got further (pushed).
+        $normal = $this->insert_string(['component' => 'mod_forum', 'status' => 'pending']);
+        $short = $this->insert_string(['component' => 'forum', 'status' => 'pushed', 'currentvalue' => 'Board']);
+        $this->vote($normal, $u1);
+        $this->vote($normal, $u2, -1);
+        $this->vote($short, $u2);
+        $this->vote($short, $u3);
+        $DB->insert_record('local_langcrowd_suggestions', (object)[
+            'stringid' => $normal, 'userid' => $u1, 'suggestion' => 'Hall', 'status' => 'pending',
+            'timecreated' => time(), 'timemodified' => time(),
+        ]);
+
+        local_langcrowd_upgrade_normalise_components();
+
+        $rows = $DB->get_records('local_langcrowd_strings');
+        $this->assertCount(1, $rows);
+        $kept = reset($rows);
+        $this->assertSame((int)$short, (int)$kept->id, 'the row further along the review cycle is kept');
+        $this->assertSame('mod_forum', $kept->component);
+        $this->assertSame('pushed', $kept->status);
+        $this->assertSame('Board', $kept->currentvalue);
+        // The first user's vote moved over; the second already voted on the kept row, so their other vote is dropped.
+        $this->assertEqualsCanonicalizing(
+            [$u1, $u2, $u3],
+            $DB->get_fieldset_select('local_langcrowd_votes', 'userid', 'stringid = ?', [$kept->id])
+        );
+        $this->assertSame(1, (int)$DB->get_field('local_langcrowd_votes', 'vote', ['stringid' => $kept->id, 'userid' => $u2]));
+        $this->assertSame(3, (int)$kept->votecount);
+        $this->assertSame(3, $DB->count_records('local_langcrowd_votes'));
+        $this->assertSame((int)$kept->id, (int)$DB->get_field('local_langcrowd_suggestions', 'stringid', ['userid' => $u1]));
+    }
+
+    public function test_normalise_components_normalises_the_setting(): void {
+        $this->resetAfterTest();
+        set_config('allowed_components', 'forum,mod_forum,moodle,block_html', 'local_langcrowd');
+
+        local_langcrowd_upgrade_normalise_components();
+
+        $this->assertSame('mod_forum,core,block_html', get_config('local_langcrowd', 'allowed_components'));
+    }
+
+    public function test_normalise_promoted_values(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $quoted = $this->insert_string(['status' => 'locked', 'currentvalue' => 'Don\'t "post"']);
+        $pending = $this->insert_string(['stringkey' => 'forum', 'status' => 'pending', 'currentvalue' => 'It\'s']);
+        $hopeless = $this->insert_string(['stringkey' => 'forumname', 'status' => 'pushed', 'currentvalue' => 'a\\b']);
+
+        local_langcrowd_upgrade_normalise_promoted_values();
+
+        $this->assertSame(
+            "Don\u{2019}t \u{201C}post\u{201D}",
+            $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $quoted])
+        );
+        $this->assertSame(
+            "It's",
+            $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $pending]),
+            'pending rows untouched'
+        );
+        $this->assertSame('a\\b', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $hopeless]));
+    }
+
+    public function test_dedupe_pending_suggestions_keeps_newest_per_user_and_string(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->insert_string([]);
+        $other = $this->insert_string(['stringkey' => 'forum']);
+        $u1 = self::getDataGenerator()->create_user()->id;
+        $u2 = self::getDataGenerator()->create_user()->id;
+        $add = function (int $stringid, int $userid, string $text, int $time, string $status = 'pending') use ($DB): int {
+            return $DB->insert_record('local_langcrowd_suggestions', (object)[
+                'stringid' => $stringid, 'userid' => $userid, 'suggestion' => $text, 'status' => $status,
+                'timecreated' => $time, 'timemodified' => $time,
+            ]);
+        };
+        $add($sid, $u1, 'old', 100);
+        $newest = $add($sid, $u1, 'new', 200);
+        $rejected = $add($sid, $u1, 'rejected', 50, 'rejected');
+        $u2row = $add($sid, $u2, 'u2', 100);
+        $otherrow = $add($other, $u1, 'other string', 100);
+
+        local_langcrowd_upgrade_dedupe_pending_suggestions();
+
+        $this->assertEqualsCanonicalizing(
+            [$newest, $rejected, $u2row, $otherrow],
+            array_map('intval', array_keys($DB->get_records('local_langcrowd_suggestions')))
+        );
     }
 }

@@ -26,10 +26,9 @@ namespace local_langcrowd\external;
 
 /**
  * Unit tests for the get_string_ids external function.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\external\get_string_ids
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\external\get_string_ids::class)]
 final class get_string_ids_test extends \advanced_testcase {
     /**
      * Executes get_string_ids and returns the cleaned result.
@@ -235,5 +234,53 @@ final class get_string_ids_test extends \advanced_testcase {
 
         $this->expectException(\moodle_exception::class);
         $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
+    }
+
+    public function test_capability_required(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+        assign_capability('local/langcrowd:vote', CAP_PROHIBIT, $CFG->defaultuserroleid, \context_system::instance(), true);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->expectException(\required_capability_exception::class);
+        $this->call([['component' => 'mod_forum', 'key' => 'modulename']]);
+    }
+
+    public function test_component_spellings_share_one_row(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        // Plugins such as mod_rememberme call get_string() with both 'forum' and 'mod_forum',
+        // and core strings are requested as both 'moodle' and 'core'.
+        $result = $this->call([
+            ['component' => 'forum', 'key' => 'modulename'],
+            ['component' => 'mod_forum', 'key' => 'modulename'],
+            ['component' => 'moodle', 'key' => 'login'],
+        ]);
+
+        $this->assertSame(1, $DB->count_records('local_langcrowd_strings', ['component' => 'mod_forum']));
+        $this->assertSame(1, $DB->count_records('local_langcrowd_strings', ['component' => 'core', 'stringkey' => 'login']));
+        $this->assertSame(2, $DB->count_records('local_langcrowd_strings'));
+        $this->assertSame($result[0]['stringid'], $result[1]['stringid']);
+        $this->assertSame('mod_forum', $result[0]['component']);
+    }
+
+    public function test_component_filter_matches_any_spelling(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        set_config('allowed_components', 'mod_forum', 'local_langcrowd');
+        $this->setUser(self::getDataGenerator()->create_user());
+
+        $this->call([
+            ['component' => 'forum', 'key' => 'modulename'],
+            ['component' => 'quiz', 'key' => 'modulename'],
+        ]);
+
+        $this->assertSame(['mod_forum'], array_values($DB->get_fieldset_select('local_langcrowd_strings', 'component', '1 = 1')));
     }
 }

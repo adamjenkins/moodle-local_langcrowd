@@ -51,40 +51,46 @@ $PAGE->set_heading(get_string('report_suggestions', 'local_langcrowd'));
 $PAGE->set_pagelayout('admin');
 
 /**
- * Applies a suggestion action and returns the success message, or '' if unknown.
+ * Applies a suggestion action and returns [message, notification type], or ['', ''] if unknown.
  *
  * @param string $action promote|push|reject
  * @param int[]  $suggestionids
- * @return string
+ * @return array
  */
-function local_langcrowd_apply_suggestion_action(string $action, array $suggestionids): string {
-    $count = count($suggestionids);
+function local_langcrowd_apply_suggestion_action(string $action, array $suggestionids): array {
     if ($action === 'promote') {
-        \local_langcrowd\manager::apply_suggestions($suggestionids, true);
-        return get_string('bulk_approved', 'local_langcrowd', $count);
+        $done = \local_langcrowd\manager::apply_suggestions($suggestionids, true);
+        $message = get_string('bulk_approved', 'local_langcrowd', $done);
     } else if ($action === 'push') {
-        \local_langcrowd\manager::apply_suggestions($suggestionids, false);
-        return get_string('bulk_pushed', 'local_langcrowd', $count);
+        $done = \local_langcrowd\manager::apply_suggestions($suggestionids, false);
+        $message = get_string('bulk_pushed', 'local_langcrowd', $done);
     } else if ($action === 'reject') {
-        \local_langcrowd\manager::reject_suggestions($suggestionids);
-        return get_string('bulk_rejected', 'local_langcrowd', $count);
+        $done = \local_langcrowd\manager::reject_suggestions($suggestionids);
+        $message = get_string('bulk_rejected', 'local_langcrowd', $done);
+    } else {
+        return ['', ''];
     }
-    return '';
+    $skipped = count($suggestionids) - $done;
+    if ($skipped > 0) {
+        $message .= ' ' . get_string('bulk_skipped', 'local_langcrowd', $skipped);
+        return [$message, \core\output\notification::NOTIFY_WARNING];
+    }
+    return [$message, \core\output\notification::NOTIFY_SUCCESS];
 }
 
 // Handle individual or bulk actions.
 if (($single !== '' || $applybulk) && confirm_sesskey()) {
-    $message = '';
+    [$message, $type] = ['', ''];
     if ($single !== '') {
         [$act, $sid] = array_pad(explode(':', $single, 2), 2, '');
         $sid = (int)$sid;
         if ($sid && $DB->record_exists('local_langcrowd_suggestions', ['id' => $sid])) {
-            $message = local_langcrowd_apply_suggestion_action($act, [$sid]);
+            [$message, $type] = local_langcrowd_apply_suggestion_action($act, [$sid]);
         }
     } else if ($applybulk && !empty($ids)) {
-        $message = local_langcrowd_apply_suggestion_action($bulkaction, $ids);
+        [$message, $type] = local_langcrowd_apply_suggestion_action($bulkaction, $ids);
     }
-    redirect($baseurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect($baseurl, $message, null, $type ?: \core\output\notification::NOTIFY_SUCCESS);
 }
 
 // Build query joining suggestions to strings and users.
@@ -223,6 +229,16 @@ if (empty($records)) {
         ]);
         $actions = html_writer::div($promote . $push . $reject, 'd-flex gap-1 flex-wrap');
 
+        // Suggestions stored before the intake rules existed may not be servable; say so
+        // up front, since Approve/Push will skip them.
+        $suggestioncell = s($rec->suggestion);
+        if (!\local_langcrowd\local\text_safety::is_safe(\local_langcrowd\local\text_safety::normalise((string)$rec->suggestion))) {
+            $suggestioncell .= ' ' . html_writer::span(
+                s(get_string('suggestion_unsafe_badge', 'local_langcrowd')),
+                'badge bg-warning text-dark'
+            );
+        }
+
         $table->data[] = [
             $checkbox,
             s($rec->component),
@@ -230,7 +246,7 @@ if (empty($records)) {
             s($rec->lang),
             s($rec->sourcevalue),
             s($rec->currentvalue),
-            s($rec->suggestion),
+            $suggestioncell,
             s(fullname($rec)),
             userdate($rec->timecreated),
             $actions,

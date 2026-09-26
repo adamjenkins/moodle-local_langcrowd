@@ -29,6 +29,9 @@
 
 namespace local_langcrowd;
 
+use local_langcrowd\local\components;
+use local_langcrowd\local\text_safety;
+
 /**
  * Extends the standard string manager to track string usage on each page.
  */
@@ -109,10 +112,10 @@ class string_manager extends \core_string_manager_standard {
      * Whether a promoted (locked/pushed) row may be served through get_string().
      *
      * Only rows whose value actually differs from the source are worth serving.
-     * Values containing markup are never served: currentvalue is derived
-     * server-side from lang packs or tag-stripped suggestions, so markup can
-     * only mean tampered or legacy data (get_string() output is emitted
-     * unescaped throughout Moodle).
+     * Values that could break out of their output context are never served:
+     * get_string() output is emitted unescaped throughout Moodle, including inside
+     * HTML attributes and inline JavaScript (see text_safety). Refusing a row just
+     * falls back to the lang pack's own value.
      *
      * @param \stdClass $rec Row with currentvalue and sourcevalue.
      * @return bool
@@ -120,7 +123,7 @@ class string_manager extends \core_string_manager_standard {
     protected static function should_promote(\stdClass $rec): bool {
         $current = (string)$rec->currentvalue;
         return $current !== (string)$rec->sourcevalue
-            && $current === strip_tags($current);
+            && text_safety::is_safe($current);
     }
 
     /**
@@ -135,7 +138,8 @@ class string_manager extends \core_string_manager_standard {
     public function get_string($identifier, $component = '', $a = null, $lang = null) {
         $this->load_promoted_strings();
 
-        $comp     = empty($component) ? 'moodle' : $component;
+        // One row per string however the caller spells the component ('forum' vs 'mod_forum').
+        $comp     = components::normalise((string)$component);
         $cachekey = $comp . '::' . $identifier;
 
         // Serve a promoted (locked/pushed) translation when one exists and no substitution is needed.
@@ -162,7 +166,7 @@ class string_manager extends \core_string_manager_standard {
      * Skips the plugin's own strings, very short strings, strings containing HTML,
      * and strings with embedded newlines — none of which can match a DOM text node.
      *
-     * @param string $comp       Resolved component name.
+     * @param string $comp       Normalised component name.
      * @param string $identifier String key.
      * @param string $value      Rendered value.
      */

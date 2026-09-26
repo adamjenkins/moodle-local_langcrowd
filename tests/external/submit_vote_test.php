@@ -26,10 +26,9 @@ namespace local_langcrowd\external;
 
 /**
  * Unit tests for the submit_vote external function.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\external\submit_vote
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\external\submit_vote::class)]
 final class submit_vote_test extends \advanced_testcase {
     /**
      * Inserts a pending string row and returns its id.
@@ -190,5 +189,35 @@ final class submit_vote_test extends \advanced_testcase {
 
         $this->expectException(\moodle_exception::class);
         $this->call($sid, 1);
+    }
+
+    public function test_capability_required(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        $this->enable();
+        $this->setUser(self::getDataGenerator()->create_user());
+        $sid = $this->make_string();
+        assign_capability('local/langcrowd:vote', CAP_PROHIBIT, $CFG->defaultuserroleid, \context_system::instance(), true);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->expectException(\required_capability_exception::class);
+        $this->call($sid, 1);
+    }
+
+    public function test_excluded_component_refused(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        set_config('allowed_components', 'mod_quiz', 'local_langcrowd');
+        $this->setUser(self::getDataGenerator()->create_user());
+        $sid = $this->make_string(['component' => 'mod_forum']);
+
+        try {
+            $this->call($sid, 1);
+            $this->fail('A vote on an excluded component must be refused');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('nopermissions', $e->errorcode);
+        }
+        $this->assertSame(0, $DB->count_records('local_langcrowd_votes'));
     }
 }

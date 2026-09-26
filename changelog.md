@@ -7,6 +7,81 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+Build `2026092600` (upgrade steps below). The release number has not been bumped yet.
+
+### Security
+
+- **Promoted translations can no longer break out of HTML attributes or inline
+  JavaScript.** The serving guard only refused values containing tags, but Moodle
+  core also prints `get_string()` output unescaped inside quoted attributes (e.g. the
+  login block's submit button, the site logo's `alt`, mod_lesson's buttons) and in
+  inline scripts. A crowd-sourced suggestion such as `Log in" onfocus="…"`, once an
+  admin approved or pushed it, became stored XSS on every page using that string.
+  Suggestions are now checked on the server: straight quotes are converted to
+  typographic ones, and angle brackets, backslashes, backticks and HTML character
+  references (with or without the closing `;`) are refused. The same rule is enforced where promoted values are served
+  and where suggestions are applied, and the exporter never writes such a value into
+  an installable language pack unless it is identical to the installed pack. An
+  upgrade step converts straight quotes in existing promoted values so they keep
+  being served.
+- `local/langcrowd:admin` now declares `RISK_CONFIG | RISK_XSS`, like core's
+  language customisation capability.
+- Suggestion length (4096 characters) is enforced on the server, not only by the
+  browser, and each user keeps at most one pending suggestion per string (an upgrade
+  step removes older duplicates, keeping the newest).
+- Votes and suggestions re-check the component allow-list, so excluding a component
+  also freezes the rows already recorded for it.
+
+### Fixed
+
+- **Components never offered in the component filter** (e.g. `mod_rememberme`). The
+  option list was built from strings already recorded, and once any component was
+  selected, strings of unselected components were no longer recorded — so a component
+  not seen before the setting was saved could never be chosen. The list now offers
+  every installed component.
+- **One string split across two rows.** Strings were recorded under whatever component
+  spelling the caller passed to `get_string()` (`rememberme` vs `mod_rememberme`,
+  `moodle` vs `core`), splitting votes and suggestions and defeating the component
+  filter. Component names are now normalised everywhere; an upgrade step merges split
+  rows (keeping the one further along the review cycle, moving votes and suggestions)
+  and normalises the saved filter.
+- Exported language packs now use real lang-pack file names (`moodle.php`,
+  `forum.php`, `admin.php`, `block_html.php`) instead of `core.php` / `mod_forum.php`.
+- **Remove on the Voting Report reset a translation to the English source.** The
+  stored value then went into exports for that language (and could overwrite the real
+  translation when installed). It now resets to the installed language pack's value; an
+  upgrade step repairs pending rows, and the exporter skips English left in another
+  language's row where the installed pack has its own translation.
+- The documented way to install an exported pack was wrong (*Language packs* cannot
+  install an uploaded zip, and unzipping into the code tree's `lang/` would have replaced
+  whole pack files). The docs now describe `moodledata/lang/<lang>_local/` overrides and AMOS.
+- Missing capability names (`langcrowd:vote`, `:suggest`, `:admin`) in all three
+  language packs; role-editing screens and permission errors showed placeholders.
+- The reports and the exporter were only reachable in the admin tree with
+  `moodle/site:config`, although they require `local/langcrowd:admin`; managers can
+  now reach them. The navbar link is gated on the same capability.
+- A vote or the hourly task could overwrite an admin lock/push/revert that landed
+  between reading and writing a string; status writes are now conditional on the
+  status that was read.
+- Approve/Push/Reject act only on suggestions that are still pending, bulk actions
+  run in one transaction, and the result message reports skipped rows. Suggestions
+  stored before the new text rules are marked *Cannot be applied*.
+- Vote counts are recomputed after a privacy deletion, and the hourly task now keeps
+  counts accurate even when the threshold is 0 or the string is locked.
+- Privacy provider: the metadata declares every exported field, the export names the
+  string each vote/suggestion is about (with readable dates), and deletions ignore
+  contexts other than the system context.
+
+### Changed
+
+- Removed seven unused language strings; documented uninstalling in the user guides;
+  corrected the admin menu location in the documentation (*Plugins → Local plugins*).
+- Tests moved to directories matching their namespaces, use PHPUnit attributes, and
+  cover the capability checks, the participation gate for suggestions, the serving
+  path of the guard, and the new upgrade steps (68 → 114 tests).
+
 ## [0.3.2] — 2026-07-18
 
 ### Security

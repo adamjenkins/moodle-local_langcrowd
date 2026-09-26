@@ -104,10 +104,17 @@ class exporter {
             return '';
         }
 
-        // Group by language then component.
+        // Group by language then lang-pack file ('mod_forum' strings live in forum.php,
+        // core strings in moodle.php), leaving out values that must not be installed.
         $bylang = [];
         foreach ($records as $rec) {
-            $bylang[$rec->lang][$rec->component][] = $rec;
+            if (!self::is_exportable($rec)) {
+                continue;
+            }
+            $bylang[$rec->lang][components::lang_file_name($rec->component)][] = $rec;
+        }
+        if (empty($bylang)) {
+            return '';
         }
 
         // Build the zip under Moodle's managed temp area; make_request_directory()
@@ -118,10 +125,10 @@ class exporter {
             return '';
         }
 
-        foreach ($bylang as $lang => $bycomponent) {
-            foreach ($bycomponent as $component => $strings) {
-                $content = self::generate_lang_file($component, $lang, $strings);
-                $zip->addFromString($lang . '/' . $component . '.php', $content);
+        foreach ($bylang as $lang => $byfile) {
+            foreach ($byfile as $file => $strings) {
+                $content = self::generate_lang_file($strings[0]->component, $lang, $strings);
+                $zip->addFromString($lang . '/' . $file . '.php', $content);
             }
         }
 
@@ -130,6 +137,32 @@ class exporter {
         unlink($tmpfile);
 
         return $binary !== false ? $binary : '';
+    }
+
+    /**
+     * Whether a row's value may go into an installable lang pack.
+     *
+     * An installed lang pack is served by core with no guard at all, so a value that
+     * could break out of an HTML attribute or a JavaScript string (see text_safety) is
+     * exported only when it is exactly what the installed lang pack already says. A
+     * non-English row still holding the English source (left by older versions' revert)
+     * is not exported when the installed pack has its own translation.
+     *
+     * @param \stdClass $rec
+     * @return bool
+     */
+    protected static function is_exportable(\stdClass $rec): bool {
+        $value = (string)$rec->currentvalue;
+        $stringmanager = get_string_manager();
+        $installed = $stringmanager->string_exists($rec->stringkey, $rec->component)
+            ? $stringmanager->get_string($rec->stringkey, $rec->component, null, $rec->lang)
+            : null;
+        // Older versions reset a reverted row's value to the English source; never ship
+        // English into another language's file where the installed pack says otherwise.
+        if ($rec->lang !== 'en' && $value === (string)$rec->sourcevalue && $installed !== null && $installed !== $value) {
+            return false;
+        }
+        return text_safety::is_safe($value) || $installed === $value;
     }
 
     /**

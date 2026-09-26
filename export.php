@@ -40,7 +40,10 @@ $availablelangs = \local_langcrowd\local\exporter::get_languages();
 if (optional_param('download', 0, PARAM_BOOL) && confirm_sesskey()) {
     $langparam  = optional_param('lang', '', PARAM_RAW_TRIMMED);
     $scope      = optional_param('scope', 'locked', PARAM_ALPHA);
-    $components = optional_param_array('components', [], PARAM_NOTAGS);
+    $components = array_map(
+        [\local_langcrowd\local\components::class, 'normalise'],
+        optional_param_array('components', [], PARAM_COMPONENT)
+    );
 
     if ($langparam === '__all__') {
         $binary   = \local_langcrowd\local\exporter::export_all_languages($components, $scope);
@@ -141,7 +144,7 @@ foreach ($comps as $c) {
 }
 // Pre-select the components chosen in the global setting (intersected with what's available).
 $allowedcsv         = get_config('local_langcrowd', 'allowed_components');
-$allowedcomponents  = !empty($allowedcsv) ? explode(',', $allowedcsv) : [];
+$allowedcomponents  = !empty($allowedcsv) ? \local_langcrowd\local\components::normalise_list($allowedcsv) : [];
 $selectedcomponents = array_values(array_intersect($allowedcomponents, array_keys($compopts)));
 echo html_writer::select($compopts, 'components[]', $selectedcomponents, false, [
     'id'       => 'exportcomponents',

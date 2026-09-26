@@ -38,42 +38,50 @@ class aggregate_votes extends \core\task\scheduled_task {
     }
 
     /**
-     * Recalculates votecount for every pending string and locks those that
-     * have reached the configured threshold.
+     * Recalculates votecount for every string (so counts heal after votes are
+     * deleted, e.g. by a privacy request) and, when a threshold is set, locks the
+     * pending/pushed strings that have reached it.
      */
     public function execute(): void {
         global $DB;
 
         $threshold = (int)get_config('local_langcrowd', 'threshold');
-        if ($threshold <= 0) {
-            return;
-        }
 
         $now     = time();
-        $strings = $DB->get_records_sql(
+        $strings = $DB->get_recordset_sql(
             "SELECT s.id, s.status, s.votecount, COALESCE(v.approves, 0) AS newvotecount
                FROM {local_langcrowd_strings} s
           LEFT JOIN (SELECT stringid, COUNT(*) AS approves
                        FROM {local_langcrowd_votes}
                       WHERE vote = 1
-                   GROUP BY stringid) v ON v.stringid = s.id
-              WHERE s.status IN ('pending', 'pushed')"
+                   GROUP BY stringid) v ON v.stringid = s.id"
         );
 
         foreach ($strings as $str) {
             $votecount = (int)$str->newvotecount;
 
-            // Preserve 'pushed' status when below threshold so the translation keeps being served.
-            $newstatus = ($votecount >= $threshold) ? 'locked' : $str->status;
+            // Only pending/pushed strings lock by threshold; 'pushed' is otherwise preserved
+            // so the translation keeps being served, and 'locked' is never changed here.
+            $locks     = $threshold > 0 && $votecount >= $threshold && in_array($str->status, ['pending', 'pushed'], true);
+            $newstatus = $locks ? 'locked' : $str->status;
 
             if ($votecount !== (int)$str->votecount || $newstatus !== $str->status) {
-                $DB->update_record('local_langcrowd_strings', (object)[
-                    'id'           => $str->id,
-                    'votecount'    => $votecount,
-                    'status'       => $newstatus,
-                    'timemodified' => $now,
-                ]);
+                // Conditional on the status read above, so an admin action taken while the
+                // task runs is not overwritten with this snapshot.
+                $DB->execute(
+                    "UPDATE {local_langcrowd_strings}
+                        SET votecount = :votecount, status = :newstatus, timemodified = :now
+                      WHERE id = :id AND status = :oldstatus",
+                    [
+                        'votecount' => $votecount,
+                        'newstatus' => $newstatus,
+                        'now'       => $now,
+                        'id'        => $str->id,
+                        'oldstatus' => $str->status,
+                    ]
+                );
             }
         }
+        $strings->close();
     }
 }

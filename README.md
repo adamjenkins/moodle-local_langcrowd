@@ -67,7 +67,7 @@ Or visit **Site administration → Notifications** in your browser.
 
 ### 4. Enable the plugin
 
-Go to **Site administration → Language → Language Crowdsourcing** and tick **Enable crowdsourcing**.
+Go to **Site administration → Plugins → Local plugins → Language Crowdsourcing → Language Crowdsourcing Settings** and tick **Enable crowdsourcing**.
 
 ### Uninstalling
 
@@ -80,13 +80,13 @@ line references a class that no longer exists and should not stay in place.
 
 ## Admin settings
 
-Navigate to **Site administration → Language → Language Crowdsourcing → Settings**.
+Navigate to **Site administration → Plugins → Local plugins → Language Crowdsourcing → Language Crowdsourcing Settings** (requires `moodle/site:config`).
 
 | Setting | Description | Default |
 |---|---|---|
 | Enable crowdsourcing | Master on/off switch. | Off |
 | Lock translate mode on | Hides the floating "Improve translations" toggle and keeps the overlay always on for everyone who can use it. | Off |
-| Show admin link in navbar | Adds a "Language Crowdsourcing" link to the primary nav (admins only). | Off |
+| Show admin link in navbar | Adds a "Language Crowdsourcing" link to the primary nav, for users with `local/langcrowd:admin`. | Off |
 | Admin approve vote locks immediately | When enabled, an approve vote from a site administrator locks the string at once, bypassing the vote threshold. Reject votes and non-admin voters are unaffected. | Off |
 | Approval threshold | Approve-votes needed to lock a string in. | 10 |
 | Max strings per page | Cap on annotated strings per page. Raise for complex admin pages. | 5000 |
@@ -94,15 +94,15 @@ Navigate to **Site administration → Language → Language Crowdsourcing → Se
 | String highlight colour | Colour of the outline drawn around a string on button hover. | `#fff3cd` |
 | Roles allowed to vote | Restrict voting to specific roles. Empty = all logged-in users. | (all) |
 | Languages to enable crowdsourcing for | Restrict the overlay to specific installed language packs. Empty = all languages. | (all) |
-| Components to enable crowdsourcing for | Restrict the overlay to specific components (e.g. `mod_forum`, `core`). Empty = all. The list is built from strings seen so far; clear it to let new components be discovered again. | (all) |
+| Components to enable crowdsourcing for | Restrict the overlay to specific components (e.g. `mod_forum`, `core`). Empty = all. Every installed component is listed, including ones whose strings have not been seen yet. Names are normalised, so a plugin that calls `get_string()` with both `forum` and `mod_forum` is one component. | (all) |
 
-> The overlay is only shown to users who hold the `local/langcrowd:vote` capability, and the role/language/component restrictions are enforced both in the UI and in the web services.
+> The overlay is only shown to users who hold the `local/langcrowd:vote` capability, and the role/language/component restrictions are enforced both in the UI and in the web services (including votes and suggestions on strings recorded before a component was excluded).
 
 ---
 
 ## Admin reports
 
-Accessible at **Site administration → Language → Language Crowdsourcing**.
+Accessible at **Site administration → Plugins → Local plugins → Language Crowdsourcing** to anyone with `local/langcrowd:admin` (managers by default — `moodle/site:config` is not needed for the reports and the exporter).
 
 ### Overview
 
@@ -136,21 +136,35 @@ Lists all pending alternative translations submitted by users. Each row shows th
 - **Push to language pack** — makes the suggestion live right now (*pushed* status) while keeping the string open for community voting. Votes reset to zero so users vote fresh on the new value. Once votes cross the threshold the string locks automatically. Use when you want the improvement served immediately but still want community validation.
 - **Reject** — dismisses the suggestion without changing the active translation.
 
+Each user has at most one pending suggestion per string; submitting again replaces it.
+
+**Text rules.** Moodle prints language strings unescaped, including inside HTML attributes and inline JavaScript, so a translation must not contain characters that can break out of them. Suggestions are checked on the server (the browser's length limit is not relied on): straight quotes are converted to typographic ones (`'` → `’`, `"` → `“ ”`), and angle brackets, backslashes, backticks and HTML character references (such as `&quot;`) are refused, as is anything longer than 4096 characters. Suggestions stored by an older version that break these rules are marked **Cannot be applied** and are skipped by Approve/Push; the notification says how many rows were skipped.
+
 ---
 
 ## Exporting language packs
 
-Go to **Site administration → Language → Language Crowdsourcing → Export Language Pack**.
+Go to **Site administration → Plugins → Local plugins → Language Crowdsourcing → Export Language Pack**.
 
 Select a language (or **All languages** to export every language in one archive), optionally filter by component — the components chosen in the *Components to enable crowdsourcing for* setting are pre-selected by default — choose whether to export locked strings only or all strings with translations, then click **Download language pack**. You receive a `.zip` file structured as a standard Moodle language pack:
 
 ```
 {lang}/
-  {component}.php
+  moodle.php          (core strings)
+  admin.php           (core subsystems drop their core_ prefix)
+  forum.php           (activity modules drop their mod_ prefix)
+  block_html.php      (other plugin types keep their full name)
   ...
 ```
 
-Install the zip via **Site administration → Language → Language packs → Install / update** or unzip it into your Moodle `lang/` directory.
+A value that could break out of an HTML attribute or a JavaScript string is exported only when it is identical to what the installed language pack already says; an installed pack is served by core without any of this plugin's checks.
+
+The zip holds **only the crowd-sourced strings**, not complete language-pack files, so never copy it over an installed pack (that would replace each whole file). Two ways to use it:
+
+- **On another site, as a local override:** copy each `{lang}/{file}.php` to `$CFG->dataroot/lang/{lang}_local/{file}.php` (default `moodledata/lang/ja_local/forum.php`, for example), then purge caches. Moodle loads `{lang}_local` files over the installed pack (`core_string_manager_standard`), the same place *Site administration → Language → Language customisation* saves to — if that tool already has a file for the same component, merge the `$string` entries instead of overwriting it.
+- **Upstream:** contribute the translations to the official language packs through [AMOS](https://lang.moodle.org/).
+
+*Site administration → Language → Language packs* only downloads packs from moodle.org; it cannot install this zip.
 
 ---
 
@@ -160,13 +174,13 @@ Install the zip via **Site administration → Language → Language packs → In
 |---|---|---|
 | `local/langcrowd:vote` | Authenticated user | Cast approve/reject votes |
 | `local/langcrowd:suggest` | Authenticated user | Submit alternative translations |
-| `local/langcrowd:admin` | Manager | Access reports and export |
+| `local/langcrowd:admin` | Manager | Access reports, approve suggestions and export. Carries `RISK_CONFIG` and `RISK_XSS`: approving a suggestion turns user-written text into a site-wide language string. |
 
 ---
 
 ## Scheduled task
 
-A task named **Aggregate crowdsourced votes** runs hourly to recalculate vote totals and apply the threshold lock. It can be triggered manually:
+A task named **Aggregate crowdsourced votes** runs hourly to recalculate vote totals (so they heal after votes are deleted, e.g. by a privacy request) and apply the threshold lock. It can be triggered manually:
 
 ```bash
 sudo -u www-data php admin/cli/scheduled_task.php \
@@ -189,7 +203,7 @@ The plugin ships with translations for:
 
 ## Architecture notes
 
-- **Custom string manager** (`classes/string_manager.php`): extends `core_string_manager_standard`. Intercepts `get_string()` to (a) serve promoted/locked translations from DB without requiring an export (in web *and* AJAX contexts), and (b) collect plain-text strings for the footer hook. Filters out parameterised strings, HTML-containing strings, strings with embedded newlines, strings shorter than 3 characters, and components excluded by the component filter.
+- **Custom string manager** (`classes/string_manager.php`): extends `core_string_manager_standard`. Intercepts `get_string()` to (a) serve promoted/locked translations from DB without requiring an export (in web *and* AJAX contexts), and (b) collect plain-text strings for the footer hook. Filters out parameterised strings, HTML-containing strings, strings with embedded newlines, strings shorter than 3 characters, and components excluded by the component filter. Component names are normalised (`classes/local/components.php`) so one string is one row however its caller spells the component, and a promoted value is served only if it passes `classes/local/text_safety.php` — otherwise the lang pack's own value is served.
 
 - **Access gate** (`classes/access.php`): the single source of truth for the enabled / role / language / component checks, used by both the footer hook and the web services so the restrictions can't be bypassed by calling the services directly.
 
@@ -266,4 +280,4 @@ the privacy provider.
 
 ## License
 
-GNU General Public License v3 or later — see [COPYING](https://www.gnu.org/licenses/gpl-3.0.html).
+GNU General Public License v3 or later — see [LICENSE](LICENSE).

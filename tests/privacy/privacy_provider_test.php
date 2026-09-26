@@ -30,10 +30,9 @@ use core_privacy\local\request\writer;
 
 /**
  * Unit tests for the privacy provider.
- *
- * @group local_langcrowd
- * @covers \local_langcrowd\privacy\provider
  */
+#[\PHPUnit\Framework\Attributes\Group('local_langcrowd')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_langcrowd\privacy\provider::class)]
 final class privacy_provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Seeds a string, a vote and a suggestion for the given user.
@@ -102,6 +101,58 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
 
         $writer = writer::with_context(\context_system::instance());
         $this->assertTrue($writer->has_any_data());
+
+        // Rows say which string they are about, not just an internal id.
+        $pluginname = get_string('pluginname', 'local_langcrowd');
+        $votes = $writer->get_data([$pluginname, 'votes'])->votes;
+        $this->assertCount(1, $votes);
+        $this->assertSame('mod_forum', $votes[0]->component);
+        $this->assertStringStartsWith('modulename', $votes[0]->stringkey);
+        $this->assertSame(1, $votes[0]->vote);
+        $suggestions = $writer->get_data([$pluginname, 'suggestions'])->suggestions;
+        $this->assertCount(1, $suggestions);
+        $this->assertSame('Board', $suggestions[0]->suggestion);
+        $this->assertSame('pending', $suggestions[0]->status);
+    }
+
+    public function test_metadata_declares_every_exported_field(): void {
+        $collection = provider::get_metadata(new \core_privacy\local\metadata\collection('local_langcrowd'));
+        $declared = [];
+        foreach ($collection->get_collection() as $item) {
+            $declared[$item->get_name()] = array_keys($item->get_privacy_fields());
+        }
+        $this->assertEqualsCanonicalizing(['stringid', 'userid', 'vote', 'timecreated'], $declared['local_langcrowd_votes']);
+        $this->assertEqualsCanonicalizing(
+            ['stringid', 'userid', 'suggestion', 'status', 'timecreated', 'timemodified'],
+            $declared['local_langcrowd_suggestions']
+        );
+    }
+
+    public function test_deleting_a_voter_recounts_the_strings_they_voted_on(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $user = self::getDataGenerator()->create_user();
+        $sid = $this->seed_for_user($user->id);
+        $DB->set_field('local_langcrowd_strings', 'votecount', 1, ['id' => $sid]);
+
+        $contextlist = new approved_contextlist($user, 'local_langcrowd', [\context_system::instance()->id]);
+        provider::delete_data_for_user($contextlist);
+
+        $this->assertSame(0, (int)$DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $sid]));
+    }
+
+    public function test_delete_ignores_other_contexts(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $user = self::getDataGenerator()->create_user();
+        $this->seed_for_user($user->id);
+        $usercontext = \context_user::instance($user->id);
+
+        provider::delete_data_for_user(new approved_contextlist($user, 'local_langcrowd', [$usercontext->id]));
+        provider::delete_data_for_users(new approved_userlist($usercontext, 'local_langcrowd', [$user->id]));
+
+        $this->assertSame(1, $DB->count_records('local_langcrowd_votes', ['userid' => $user->id]));
+        $this->assertSame(1, $DB->count_records('local_langcrowd_suggestions', ['userid' => $user->id]));
     }
 
     public function test_delete_data_for_user(): void {
@@ -125,14 +176,20 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         $this->resetAfterTest();
         $user = self::getDataGenerator()->create_user();
         $other = self::getDataGenerator()->create_user();
-        $this->seed_for_user($user->id);
-        $this->seed_for_user($other->id);
+        $usersid = $this->seed_for_user($user->id);
+        $othersid = $this->seed_for_user($other->id);
 
+        $DB->set_field('local_langcrowd_strings', 'votecount', 1);
         $userlist = new approved_userlist(\context_system::instance(), 'local_langcrowd', [$user->id]);
         provider::delete_data_for_users($userlist);
 
         $this->assertSame(0, $DB->count_records('local_langcrowd_votes', ['userid' => $user->id]));
+        $this->assertSame(0, $DB->count_records('local_langcrowd_suggestions', ['userid' => $user->id]));
         $this->assertSame(1, $DB->count_records('local_langcrowd_votes', ['userid' => $other->id]));
+        $this->assertSame(1, $DB->count_records('local_langcrowd_suggestions', ['userid' => $other->id]));
+        // The deleted user's string is recounted; the other user's keeps its approve vote.
+        $this->assertSame(0, (int)$DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $usersid]));
+        $this->assertSame(1, (int)$DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $othersid]));
     }
 
     public function test_delete_data_for_all_users_in_context(): void {
@@ -140,10 +197,12 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         $this->resetAfterTest();
         $user = self::getDataGenerator()->create_user();
         $this->seed_for_user($user->id);
+        $DB->set_field('local_langcrowd_strings', 'votecount', 1);
 
         provider::delete_data_for_all_users_in_context(\context_system::instance());
 
         $this->assertSame(0, $DB->count_records('local_langcrowd_votes'));
         $this->assertSame(0, $DB->count_records('local_langcrowd_suggestions'));
+        $this->assertSame(0, $DB->count_records_select('local_langcrowd_strings', 'votecount <> 0'));
     }
 }
