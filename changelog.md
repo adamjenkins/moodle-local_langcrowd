@@ -7,7 +7,9 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.4.1] — 2026-09-26
+
+Version `2026092602`. No database changes and no upgrade step.
 
 ### Added
 
