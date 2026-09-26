@@ -7,9 +7,9 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.4.0] — 2026-09-26
 
-Build `2026092600` (upgrade steps below). The release number has not been bumped yet.
+Version `2026092601`; the upgrade step runs at `2026092600` (see Upgrade notes in CHANGES.md).
 
 ### Security
 
@@ -80,7 +80,7 @@ Build `2026092600` (upgrade steps below). The release number has not been bumped
   corrected the admin menu location in the documentation (*Plugins → Local plugins*).
 - Tests moved to directories matching their namespaces, use PHPUnit attributes, and
   cover the capability checks, the participation gate for suggestions, the serving
-  path of the guard, and the new upgrade steps (68 → 114 tests).
+  path of the guard, and the new upgrade steps (68 → 116 tests).
 
 ## [0.3.2] — 2026-07-18
 

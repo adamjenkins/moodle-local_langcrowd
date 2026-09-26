@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_langcrowd';
-$plugin->release   = '0.3.2';
-$plugin->version   = 2026092600;
+$plugin->release   = '0.4.0';
+$plugin->version   = 2026092601;
 $plugin->requires  = 2026042000;
 $plugin->supported = [502, 502];
 $plugin->maturity  = MATURITY_BETA;

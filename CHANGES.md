@@ -1,46 +1,81 @@
-# Changes since the last release (0.3.1 → 0.3.2)
+# Changes since the last release (0.3.2 → 0.4.0)
 
 This file summarises what changed relative to the most recent released version,
-0.3.1. For the full history see [changelog.md](changelog.md).
+0.3.2. For the full history see [changelog.md](changelog.md).
 
 ## Security fixes
 
-- **Stored XSS closed: string values are now resolved entirely server-side.**
-  The `get_string_ids` web service used to accept the rendered string value from
-  the client (`PARAM_RAW`) and store it as the record's current value. Because the
-  custom string manager serves that value verbatim through `get_string()` once a
-  string is locked or pushed — and Moodle emits language strings unescaped — any
-  authenticated user with the vote capability could seed a script payload against
-  a real string key and have it execute site-wide (administrators included) once
-  the string was promoted. The `value` field has been removed from the web service;
-  the current value is now resolved from the installed language packs on the server,
-  exactly as the English source already was. An upgrade step repairs existing
-  records (see upgrade notes), and as defence in depth the string manager now
-  refuses to serve any promoted value containing HTML markup.
+- **Promoted translations can no longer break out of HTML attributes or inline
+  JavaScript.** Moodle prints language strings unescaped, including inside quoted
+  HTML attributes (the login block's button, the site logo's alt text, some activity
+  buttons) and inline scripts. The previous guard only refused HTML tags, so a
+  crowd-sourced suggestion containing a quote could, once an administrator approved or
+  pushed it, inject script into every page using that string. Suggestions are now
+  checked on the server: straight quotes are converted to typographic ones (`'` → `’`,
+  `"` → `“ ”`), and angle brackets, backslashes, backticks and HTML character
+  references (with or without the closing `;`) are refused. The same rule applies when
+  a suggestion is applied, when translations are served and when a language pack is
+  exported.
+- `local/langcrowd:admin` now declares `RISK_CONFIG | RISK_XSS`: approving a suggestion
+  turns user-written text into a site-wide language string.
+- The 4096-character suggestion limit is enforced on the server, and each user keeps at
+  most one pending suggestion per string (a new one replaces the old).
+- Votes and suggestions re-check the component allow-list.
+- A vote or the hourly task can no longer overwrite an administrator's lock, push or
+  remove that happens at the same moment.
 
 ## Bug fixes
 
-- The language-pack exporter now builds its temporary zip inside Moodle's managed
-  temp area (`make_request_directory()`) instead of the operating-system temp
-  directory, so it respects the site's temp configuration on clustered or
-  containerised deployments.
+- **Components never offered in the component filter** (for example
+  `mod_rememberme`). The setting listed only components whose strings had already been
+  recorded, and once any component was selected, no new ones were recorded — so a
+  component not seen before could never be chosen. The setting now lists every
+  installed component.
+- **One string split across two records.** Strings were recorded under whatever
+  component spelling a plugin used (`rememberme` / `mod_rememberme`, `moodle` / `core`),
+  splitting votes and suggestions. Component names are now normalised everywhere.
+- **Remove reset a translation to the English source,** which then went into that
+  language's export. It now restores the installed language pack's value.
+- Exported language packs use Moodle's real file names (`moodle.php`, `forum.php`,
+  `admin.php`, `block_html.php`).
+- The capability names were missing from the language packs.
+- Managers (who have `local/langcrowd:admin` but not full site administration) can now
+  reach the reports and the exporter from the admin menu; the navbar link uses the same
+  capability.
+- Approve/Push/Reject act only on pending suggestions; bulk actions are all-or-nothing
+  and report skipped rows. Suggestions stored before the new text rules are marked
+  *Cannot be applied*.
+- Privacy: every exported field is declared, exports say which string each vote or
+  suggestion is about, deletions stay within the system context, and vote counts are
+  recomputed after a deletion. The hourly task keeps counts accurate even with the
+  threshold at 0.
 
 ## Documentation
 
-- README: new *Uninstalling* section — remove the `$CFG->customstringmanager`
-  line from `config.php` when uninstalling the plugin.
+- Corrected the admin menu location: *Site administration → Plugins → Local plugins →
+  Language Crowdsourcing*.
+- New sections on the text rules for suggestions and on uninstalling (user guides in
+  English, Japanese and Thai).
+- How to use an exported pack: copy the files into `moodledata/lang/<lang>_local/`
+  (the same place *Language customisation* saves to) or contribute via AMOS. The zip
+  contains only the crowd-sourced strings; *Language packs* cannot install it.
 
 ## Upgrade notes
 
-1. Deploy the new code and run the Moodle upgrade. The upgrade step recomputes
-   the stored current value from the language packs for all pending records and
-   for any locked/pushed record containing HTML markup (which can only be
-   injected data — curated values are always plain text). Records whose string
-   key is unknown to the English pack and whose value contains markup are
-   deleted together with their votes and suggestions.
-2. No configuration changes are required. Locked/pushed plain-text translations
-   (community-approved or admin-pushed) are preserved unchanged.
+1. Deploy the code and run the Moodle upgrade. The upgrade step:
+   - merges string records that were split by component spelling, keeping the one
+     further along the review cycle and moving votes and suggestions onto it;
+     normalises the *Components to enable crowdsourcing for* setting;
+   - keeps only the newest pending suggestion per user and string;
+   - converts straight quotes in locked/pushed translations so they keep being served;
+   - recomputes pending records' current value from the language packs (repairs
+     records that Remove had reset to English).
+2. Suggestions stored earlier that contain now-refused characters stay in the
+   User Suggestions report marked *Cannot be applied*; reject them.
+3. Review the component setting once: it now lists every installed component.
 
 ## Metadata
 
-- `release` → `0.3.2`, `version` → `2026071700`. No database schema changes.
+- `release` → `0.4.0`, `version` → `2026092601`. No database schema changes.
+- Tests: 68 → 116 PHPUnit tests; tests moved into namespace directories and use
+  PHPUnit attributes.
