@@ -3,6 +3,10 @@
 This file summarises what changed relative to the most recent released version,
 0.4.0. For the full history see [changelog.md](changelog.md).
 
+## Unreleased
+
+- Declare Moodle 5.3 support (`$plugin->supported` is now `[502, 503]`).
+
 ## New features
 
 - **Strings with placeholders can now be voted on and translated.** Strings that

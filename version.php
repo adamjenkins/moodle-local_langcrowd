@@ -28,5 +28,5 @@ $plugin->component = 'local_langcrowd';
 $plugin->release   = '0.4.1';
 $plugin->version   = 2026092602;
 $plugin->requires  = 2026042000;
-$plugin->supported = [502, 502];
+$plugin->supported = [502, 503];
 $plugin->maturity  = MATURITY_BETA;
