@@ -11,8 +11,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- The Japanese language pack (lang/ja) is no longer included: releases ship the English strings
-  only, as the Moodle Plugins directory expects. Japanese is provided through Moodle's language
+- The Japanese and Thai language packs (lang/ja, lang/th) are no longer included: releases ship the English strings
+  only, as the Moodle Plugins directory expects. Those languages are provided through Moodle's language
   packs.
 
 ### Fixed
