@@ -7,13 +7,15 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.4.3] — 2026-10-04
 
 ### Changed
 
 - The Japanese and Thai language packs (lang/ja, lang/th) are no longer included: releases ship the English strings
   only, as the Moodle Plugins directory expects. Those languages are provided through Moodle's language
   packs.
+- Continuous integration tests against the released Moodle 5.3 (MOODLE_503_STABLE) instead of
+  Moodle's development branch.
 
 ### Fixed
 

@@ -191,13 +191,8 @@ sudo -u www-data php admin/cli/scheduled_task.php \
 
 ## Shipped language packs
 
-The plugin ships with translations for:
-
-| Language | Code |
-|---|---|
-| English | `en` |
-| Thai | `th` |
-| Japanese | `ja` |
+The plugin ships with the English language pack (`en`) only. Other languages,
+including Thai and Japanese, come from the Moodle language packs.
 
 ---
 
