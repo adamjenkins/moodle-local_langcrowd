@@ -5,12 +5,10 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-22.04
-    # moodle.git main rows (experimental: true) are non-blocking by owner decision.
-    continue-on-error: ${{ matrix.experimental == true }}
 
     services:
       postgres:
-        # Stable rows keep the pinned minimum; main/5.3 needs PostgreSQL 17 / MariaDB 11.4
+        # 5.2 rows keep the pinned minimum; MOODLE_503_STABLE needs PostgreSQL 17 / MariaDB 11.4
         # (environment.xml 5.3 block), supplied via matrix.pgsql-image / matrix.mariadb-image.
         image: ${{ matrix.pgsql-image || 'postgres:16' }}
         env:
@@ -35,22 +33,20 @@ jobs:
       fail-fast: false
       matrix:
         # Plugin declares $plugin->supported = [502, 503] (Moodle 5.2 and 5.3), which requires PHP 8.3+.
-        # Blocking rows test MOODLE_502_STABLE; 5.3 is tested via moodle.git main (5.3beta)
-        # as non-blocking rows until MOODLE_503_STABLE exists.
+        # All rows are blocking: MOODLE_502_STABLE below, plus MOODLE_503_STABLE in include
+        # (PHP 8.3-8.4, PostgreSQL 17+, MariaDB 11.4+ per environment.xml 5.3 block).
         php: ['8.3', '8.4']
         moodle-branch: ['MOODLE_502_STABLE']
         database: [pgsql, mariadb]
         include:
           - php: '8.4'
-            moodle-branch: 'main'
+            moodle-branch: 'MOODLE_503_STABLE'
             database: pgsql
-            experimental: true
             pgsql-image: 'postgres:17'
             mariadb-image: 'mariadb:11.4'
           - php: '8.3'
-            moodle-branch: 'main'
+            moodle-branch: 'MOODLE_503_STABLE'
             database: mariadb
-            experimental: true
             pgsql-image: 'postgres:17'
             mariadb-image: 'mariadb:11.4'
 
@@ -112,8 +108,8 @@ jobs:
         run: moodle-plugin-ci mustache
 
       - name: Grunt
-        # Not on main: committed amd/build bundles are built with the 5.2 toolchain.
-        if: ${{ !cancelled() && matrix.moodle-branch != 'main' }}
+        # Not on MOODLE_503_STABLE: committed amd/build bundles are built with the 5.2 toolchain.
+        if: ${{ !cancelled() && matrix.moodle-branch != 'MOODLE_503_STABLE' }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
       - name: PHPUnit tests
