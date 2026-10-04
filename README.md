@@ -19,7 +19,7 @@ The overlay can be restricted to specific roles, specific installed language pac
 
 ## Requirements
 
-- Moodle 5.2 or later (version ≥ 2026042000)
+- Moodle 5.2 – 5.3 (version ≥ 2026042000, supported branches 502–503)
 - PHP 8.3+ (Moodle 5.2 requires PHP 8.3)
 - A writable `config.php` (one line must be added — see Installation)
 

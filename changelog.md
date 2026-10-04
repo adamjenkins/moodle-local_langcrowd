@@ -7,7 +7,7 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.4.2] — 2026-10-04
 
 ### Changed
 
