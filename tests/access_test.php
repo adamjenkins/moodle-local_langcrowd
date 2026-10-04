@@ -65,6 +65,19 @@ final class access_test extends \advanced_testcase {
         $this->assertTrue(access::user_has_allowed_role($user->id));
     }
 
+    /**
+     * Allowing the implicit "Authenticated user" role allows every logged-in user, though no
+     * role_assignments row exists for it; the guest user stays excluded.
+     */
+    public function test_authenticated_user_role_allows_logged_in_users(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        $user = self::getDataGenerator()->create_user();
+        set_config('allowed_roles', (string)$CFG->defaultuserroleid, 'local_langcrowd');
+        $this->assertTrue(access::user_has_allowed_role($user->id));
+        $this->assertFalse(access::user_has_allowed_role(guest_user()->id));
+    }
+
     public function test_site_admin_always_allowed(): void {
         global $USER;
         $this->resetAfterTest();

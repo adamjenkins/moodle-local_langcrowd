@@ -7,6 +7,14 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- Choosing "Authenticated user" under "Roles allowed to vote" now lets every logged-in user (not the
+  guest) vote and suggest. It used to let nobody, because Moodle stores no role assignment for that
+  role.
+
 ## [0.4.2] — 2026-10-04
 
 ### Changed

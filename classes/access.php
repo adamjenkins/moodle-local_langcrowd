@@ -48,13 +48,15 @@ class access {
      * Whether the given user is allowed to participate under the role restriction.
      *
      * Site admins always qualify (they have no role_assignments rows). When no
-     * roles are configured, all authenticated non-guest users qualify.
+     * roles are configured, all authenticated non-guest users qualify. The
+     * "Authenticated user" role is implicit (Moodle stores no role_assignments
+     * row for it), so allowing it allows every logged-in non-guest user.
      *
      * @param int $userid
      * @return bool
      */
     public static function user_has_allowed_role(int $userid): bool {
-        global $DB;
+        global $CFG, $DB;
 
         if (is_siteadmin($userid)) {
             return true;
@@ -67,6 +69,13 @@ class access {
 
         $roleids = array_filter(array_map('intval', explode(',', $allowedroles)));
         if (empty($roleids)) {
+            return true;
+        }
+
+        if (
+            !empty($CFG->defaultuserroleid) && in_array((int)$CFG->defaultuserroleid, $roleids, true)
+            && $userid > 0 && !isguestuser($userid)
+        ) {
             return true;
         }
 
