@@ -15,9 +15,23 @@ labels:
   #   fully-free | freemium | paid-service | external-account
   #   donation-supported | commercial-support-available
   - fully-free
-# screenshots:
-#   - path: .camp/screenshots/overview.png
-#     caption: Main view
+screenshots:
+  - path: .camp/screenshots/01-translate-mode.png
+    caption: Translate mode on an assignment page in Japanese. Every interface string has a tick (approve) and a cross (suggest), and the string under the pointer is outlined. The toggle is at bottom right.
+  - path: .camp/screenshots/02-suggest-dialog.png
+    caption: 'The suggestion dialog: English source "Grading status", the current translation, and the user''s proposed wording 採点状況.'
+  - path: .camp/screenshots/03-served-translation.png
+    caption: 'A profile page after an admin approved the suggestion 市区町村 for "City/town" (replacing 都道府県, "prefecture"). It is served at once, and locked strings no longer show vote buttons.'
+  - path: .camp/screenshots/04-overview.png
+    caption: 'Administrator overview: counts of pending, pushed and locked strings, pending suggestions, and the most-voted strings.'
+  - path: .camp/screenshots/05-voting-report.png
+    caption: Voting report sorted by votes, with English source, translation, status, and Lock and Remove actions.
+  - path: .camp/screenshots/06-suggestions-report.png
+    caption: User suggestions with the English source, current translation, suggested translation and who sent it, plus Approve, Push to language pack and Reject.
+  - path: .camp/screenshots/07-export.png
+    caption: 'Export: choose a language, locked strings only or all translated strings, and components, then download a zip.'
+  - path: .camp/screenshots/08-admin-settings.png
+    caption: Settings, with the check that the custom string manager is active in config.php.
 # links:
 #   docs: https://…
 #   issues: https://…
