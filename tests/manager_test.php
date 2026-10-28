@@ -230,6 +230,19 @@ final class manager_test extends \advanced_testcase {
         $this->assertSame('rejected', $DB->get_field('local_langcrowd_suggestions', 'status', ['id' => $sugid]));
     }
 
+    public function test_apply_and_reject_skip_missing_suggestion(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->make_string();
+        $sugid = $this->make_suggestion($sid, 'Board', 'pending');
+        $DB->delete_records('local_langcrowd_suggestions', ['id' => $sugid]);
+
+        $this->assertNull(manager::apply_suggestion($sugid, true));
+        $this->assertSame(0, manager::apply_suggestions([$sugid], true));
+        $this->assertFalse(manager::reject_suggestion($sugid));
+        $this->assertSame('Forum', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
+    }
+
     public function test_apply_skips_legacy_unsafe_suggestion(): void {
         global $DB;
         $this->resetAfterTest();

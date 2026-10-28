@@ -87,9 +87,10 @@ class manager {
     /**
      * Apply a pending user suggestion as the string's active translation.
      *
-     * Suggestions that are no longer pending (already applied or rejected) are left
-     * alone, and so is text that is not safe to serve or does not keep the source's
-     * placeholders: the text is normalised and re-checked here because rows stored by
+     * Suggestions that are no longer pending (already applied or rejected) or no longer
+     * exist (replaced by their author since the admin loaded the report, which gives the
+     * new text a new id) are left alone, and so is text that is not safe to serve or does
+     * not keep the source's placeholders: the text is normalised and re-checked here because rows stored by
      * older versions never passed the intake rules (see text_safety).
      *
      * @param int  $suggestionid
@@ -98,8 +99,8 @@ class manager {
      */
     public static function apply_suggestion(int $suggestionid, bool $lock): ?\stdClass {
         global $DB;
-        $suggestion = $DB->get_record('local_langcrowd_suggestions', ['id' => $suggestionid], '*', MUST_EXIST);
-        if ($suggestion->status !== 'pending') {
+        $suggestion = $DB->get_record('local_langcrowd_suggestions', ['id' => $suggestionid]);
+        if (!$suggestion || $suggestion->status !== 'pending') {
             return null;
         }
         $value = text_safety::normalise((string)$suggestion->suggestion);

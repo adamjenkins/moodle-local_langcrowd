@@ -223,6 +223,42 @@ final class submit_suggestion_test extends \advanced_testcase {
         $this->assertSame('third', reset($rows)->suggestion);
     }
 
+    public function test_replaced_suggestion_cannot_be_applied_by_its_old_id(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->enable();
+        $user = self::getDataGenerator()->create_user();
+        $this->setUser($user);
+        $sid = $this->make_string();
+
+        // The admin loads the report while the suggestion reads 'Discussion board'.
+        $this->call($sid, 'Discussion board');
+        $reviewed = $DB->get_record('local_langcrowd_suggestions', ['stringid' => $sid, 'userid' => $user->id], '*', MUST_EXIST);
+
+        // The author then swaps in different text before the admin clicks Approve.
+        $this->call($sid, 'Swapped text');
+
+        // Approving the id the admin saw must not apply the unreviewed text.
+        $this->assertNull(\local_langcrowd\manager::apply_suggestion((int)$reviewed->id, true));
+        $this->assertSame(0, \local_langcrowd\manager::apply_suggestions([(int)$reviewed->id], false));
+        $string = $DB->get_record('local_langcrowd_strings', ['id' => $sid], '*', MUST_EXIST);
+        $this->assertSame('Forum', $string->currentvalue);
+        $this->assertSame('pending', $string->status);
+
+        // The replacement is one pending row under a new id, still dated from the first submission.
+        $rows = $DB->get_records('local_langcrowd_suggestions', ['stringid' => $sid, 'userid' => $user->id]);
+        $this->assertCount(1, $rows);
+        $current = reset($rows);
+        $this->assertNotEquals($reviewed->id, $current->id);
+        $this->assertSame('Swapped text', $current->suggestion);
+        $this->assertSame('pending', $current->status);
+        $this->assertEquals($reviewed->timecreated, $current->timecreated);
+
+        // Once the admin sees and approves the new text, it applies.
+        $this->assertNotNull(\local_langcrowd\manager::apply_suggestion((int)$current->id, true));
+        $this->assertSame('Swapped text', $DB->get_field('local_langcrowd_strings', 'currentvalue', ['id' => $sid]));
+    }
+
     public function test_capability_required(): void {
         global $CFG;
         $this->resetAfterTest();

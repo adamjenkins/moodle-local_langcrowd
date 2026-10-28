@@ -84,7 +84,8 @@ if (($single !== '' || $applybulk) && confirm_sesskey()) {
     if ($single !== '') {
         [$act, $sid] = array_pad(explode(':', $single, 2), 2, '');
         $sid = (int)$sid;
-        if ($sid && $DB->record_exists('local_langcrowd_suggestions', ['id' => $sid])) {
+        // A missing id is counted as skipped: its author replaced the text after this page loaded.
+        if ($sid) {
             [$message, $type] = local_langcrowd_apply_suggestion_action($act, [$sid]);
         }
     } else if ($applybulk && !empty($ids)) {

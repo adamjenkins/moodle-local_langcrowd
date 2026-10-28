@@ -91,28 +91,28 @@ class submit_suggestion extends external_api {
         $now = time();
 
         // One pending suggestion per user and string: a new one replaces the previous,
-        // so repeated calls cannot flood the table or the admin report.
-        $existing = $DB->get_record('local_langcrowd_suggestions', [
+        // so repeated calls cannot flood the table or the admin report. The replacement
+        // gets a new id rather than an in-place edit: an admin acts on the id shown in the
+        // report, so an Approve or Push for text the admin read must never apply text the
+        // author swapped in afterwards (manager::apply_suggestion skips a missing id).
+        $existing = $DB->get_records('local_langcrowd_suggestions', [
             'stringid' => $params['stringid'],
             'userid'   => $USER->id,
             'status'   => 'pending',
-        ], 'id', IGNORE_MULTIPLE);
+        ], 'id ASC', 'id, timecreated');
+        $transaction = $DB->start_delegated_transaction();
         if ($existing) {
-            $DB->update_record('local_langcrowd_suggestions', (object)[
-                'id'           => $existing->id,
-                'suggestion'   => $suggestion,
-                'timemodified' => $now,
-            ]);
-        } else {
-            $row               = new \stdClass();
-            $row->stringid     = $params['stringid'];
-            $row->userid       = $USER->id;
-            $row->suggestion   = $suggestion;
-            $row->status       = 'pending';
-            $row->timecreated  = $now;
-            $row->timemodified = $now;
-            $DB->insert_record('local_langcrowd_suggestions', $row);
+            $DB->delete_records_list('local_langcrowd_suggestions', 'id', array_keys($existing));
         }
+        $row               = new \stdClass();
+        $row->stringid     = $params['stringid'];
+        $row->userid       = $USER->id;
+        $row->suggestion   = $suggestion;
+        $row->status       = 'pending';
+        $row->timecreated  = $existing ? (int)reset($existing)->timecreated : $now;
+        $row->timemodified = $now;
+        $DB->insert_record('local_langcrowd_suggestions', $row);
+        $transaction->allow_commit();
 
         // Record a reject vote if the user has not yet voted on this string.
         if (!$DB->record_exists('local_langcrowd_votes', ['stringid' => $params['stringid'], 'userid' => $USER->id])) {
