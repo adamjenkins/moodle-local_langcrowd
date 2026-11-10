@@ -7,6 +7,47 @@ Version numbers follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.4] — 2026-11-10
+
+Version `2026111001`. Upgrade step `2026111000` (data cleanup only; no schema change).
+
+### Added
+
+- `\local_langcrowd\observer::user_deleted`, registered in the new `db/events.php` for
+  `\core\event\user_deleted`: removes the deleted account's votes and suggestions and recounts
+  the approve totals of the strings it voted on. Promoted translations are kept.
+- `manager::delete_user_data()`, shared by the observer and the privacy provider
+  (`provider::delete_user_rows()` now calls it).
+- Upgrade step `2026111000` runs `local_langcrowd_upgrade_purge_deleted_users()` (`db/upgradelib.php`),
+  which deletes votes and suggestions whose user is deleted or no longer exists and recomputes
+  `votecount` for every string that lost a vote.
+- Plugin icon `pix/icon.svg` for the admin plugins page.
+- Eight camp listing screenshots in `.camp/screenshots/`, listed with captions in `.camp/listing.yml`.
+- New tests: `tests/observer_test.php`, `tests/upgradelib_test.php`, and new cases in
+  `tests/external/submit_suggestion_test.php`, `tests/manager_test.php` and
+  `tests/local/text_safety_test.php`.
+
+### Changed
+
+- `amd/src/voting.js` is converted from a legacy `define()` module to ES6 `import`/`export`
+  syntax (rebuilt `amd/build`); behaviour is unchanged.
+- `bulk_skipped` string now also names a suggestion its author changed after the page loaded.
+
+### Fixed
+
+- `submit_suggestion` no longer edits a pending suggestion in place when its author resubmits:
+  inside a transaction it deletes the user's pending row(s) for the string and inserts a new row
+  (keeping the original `timecreated`). An admin's Approve or Push names only the row id, so it can
+  no longer apply text written after the admin read the report. `manager::apply_suggestion()`
+  returns `null` for an id that no longer exists instead of throwing, and `report_suggestions.php`
+  passes such an id through so it is counted as skipped.
+
+### Security
+
+- `text_safety::normalise()` collapses CR, LF, U+2028 and U+2029 (with the spaces or tabs around
+  them) to one space, and `text_safety::is_safe()` refuses text that contains any of them or is
+  not valid UTF-8, so a served string cannot end a JavaScript string literal.
+
 ## [0.4.3] — 2026-10-04
 
 ### Changed
