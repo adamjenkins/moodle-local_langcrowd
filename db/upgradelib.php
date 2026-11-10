@@ -214,6 +214,35 @@ function local_langcrowd_upgrade_dedupe_pending_suggestions(): void {
 }
 
 /**
+ * Removes the votes and suggestions of deleted (or no longer existing) users.
+ *
+ * Before version 2026111000 nothing cleaned up when an account was deleted outside a
+ * privacy request, so its votes kept counting toward the lock threshold and its
+ * suggestions stayed in the admin report. From 2026111000 a user_deleted observer does
+ * this; this step clears what built up before. The approve count of every string that
+ * lost a vote is recomputed (strings already locked or pushed keep their status).
+ */
+function local_langcrowd_upgrade_purge_deleted_users(): void {
+    global $DB;
+
+    $orphan = 'NOT EXISTS (SELECT 1 FROM {user} u WHERE u.id = t.userid AND u.deleted = 0)';
+    // Collect ids first: MySQL refuses a DELETE whose subquery reads the same table.
+    $votes = $DB->get_records_sql("SELECT t.id, t.stringid FROM {local_langcrowd_votes} t WHERE $orphan");
+    $suggestionids = $DB->get_fieldset_sql("SELECT t.id FROM {local_langcrowd_suggestions} t WHERE $orphan");
+    foreach (array_chunk(array_keys($votes), 1000) as $chunk) {
+        $DB->delete_records_list('local_langcrowd_votes', 'id', $chunk);
+    }
+    foreach (array_chunk($suggestionids, 1000) as $chunk) {
+        $DB->delete_records_list('local_langcrowd_suggestions', 'id', $chunk);
+    }
+    $stringids = array_map(fn($vote) => (int)$vote->stringid, $votes);
+    foreach (array_unique($stringids) as $id) {
+        $count = $DB->count_records('local_langcrowd_votes', ['stringid' => $id, 'vote' => 1]);
+        $DB->set_field('local_langcrowd_strings', 'votecount', $count, ['id' => $id]);
+    }
+}
+
+/**
  * Converts straight quotes in promoted values that the stricter serving guard now refuses.
  *
  * From version 2026092600 a promoted value is served only if it cannot break out of an

@@ -38,6 +38,7 @@ require_once($CFG->dirroot . '/local/langcrowd/db/upgradelib.php');
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_normalise_components')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_normalise_promoted_values')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_dedupe_pending_suggestions')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_langcrowd_upgrade_purge_deleted_users')]
 final class upgradelib_test extends \advanced_testcase {
     /**
      * Inserts a string record with the given fields and returns its id.
@@ -311,5 +312,34 @@ final class upgradelib_test extends \advanced_testcase {
             [$newest, $rejected, $u2row, $otherrow],
             array_map('intval', array_keys($DB->get_records('local_langcrowd_suggestions')))
         );
+    }
+
+    public function test_purge_deleted_users_removes_their_rows_and_recounts(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $sid = $this->insert_string(['votecount' => 3]);
+        $active = self::getDataGenerator()->create_user()->id;
+        $gone = self::getDataGenerator()->create_user()->id;
+        // Mark the account deleted without firing user_deleted, as before the observer existed.
+        $DB->set_field('user', 'deleted', 1, ['id' => $gone]);
+        $missing = $gone + 1000;
+        foreach ([$active, $gone, $missing] as $userid) {
+            $DB->insert_record('local_langcrowd_votes', (object)[
+                'stringid' => $sid, 'userid' => $userid, 'vote' => 1, 'timecreated' => time(),
+            ]);
+            $DB->insert_record('local_langcrowd_suggestions', (object)[
+                'stringid' => $sid, 'userid' => $userid, 'suggestion' => 'Board', 'status' => 'pending',
+                'timecreated' => time(), 'timemodified' => time(),
+            ]);
+        }
+
+        local_langcrowd_upgrade_purge_deleted_users();
+
+        $this->assertEquals([$active], array_values($DB->get_fieldset_select('local_langcrowd_votes', 'userid', '1 = 1')));
+        $this->assertEquals(
+            [$active],
+            array_values($DB->get_fieldset_select('local_langcrowd_suggestions', 'userid', '1 = 1'))
+        );
+        $this->assertEquals(1, $DB->get_field('local_langcrowd_strings', 'votecount', ['id' => $sid]));
     }
 }

@@ -220,16 +220,7 @@ class provider implements
      * @param int[] $userids
      */
     protected static function delete_user_rows(array $userids): void {
-        global $DB;
-
-        if (empty($userids)) {
-            return;
-        }
-        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
-        $stringids = $DB->get_fieldset_select('local_langcrowd_votes', 'DISTINCT stringid', "userid $insql", $params);
-        $DB->delete_records_select('local_langcrowd_votes', "userid $insql", $params);
-        $DB->delete_records_select('local_langcrowd_suggestions', "userid $insql", $params);
-        manager::recount_votes($stringids);
+        manager::delete_user_data($userids);
     }
 
     /**

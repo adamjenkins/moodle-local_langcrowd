@@ -213,6 +213,30 @@ class manager {
     }
 
     /**
+     * Deletes the votes and suggestions of the given users, then recounts the approve
+     * totals of the strings they had voted on so no stale count survives them.
+     *
+     * Used by the privacy provider and by the user_deleted observer, so a deleted
+     * account's votes stop counting toward the lock threshold and its suggestions
+     * leave the admin report.
+     *
+     * @param int[] $userids
+     */
+    public static function delete_user_data(array $userids): void {
+        global $DB;
+
+        $userids = array_values(array_unique(array_map('intval', $userids)));
+        if (empty($userids)) {
+            return;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        $stringids = $DB->get_fieldset_select('local_langcrowd_votes', 'DISTINCT stringid', "userid $insql", $params);
+        $DB->delete_records_select('local_langcrowd_votes', "userid $insql", $params);
+        $DB->delete_records_select('local_langcrowd_suggestions', "userid $insql", $params);
+        self::recount_votes($stringids);
+    }
+
+    /**
      * Recomputes the stored approve count of the given strings from their vote rows,
      * e.g. after votes were deleted by a privacy request. Status is left unchanged.
      *

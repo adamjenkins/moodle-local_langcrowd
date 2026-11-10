@@ -55,6 +55,23 @@ final class text_safety_test extends \advanced_testcase {
         }
     }
 
+    public function test_line_breaks_are_unsafe(): void {
+        foreach (["a\nb", "a\rb", "a\r\nb", "a\u{2028}b", "a\u{2029}b"] as $text) {
+            $this->assertFalse(text_safety::is_safe($text), json_encode($text));
+        }
+        // Invalid UTF-8 is refused rather than passed through.
+        $this->assertFalse(text_safety::is_safe("a\xC3b"));
+    }
+
+    public function test_normalise_collapses_line_breaks(): void {
+        $this->assertSame('Line one line two', text_safety::normalise("Line one\nline two"));
+        $this->assertSame('a b', text_safety::normalise("a \r\n  b"));
+        $this->assertSame('a b c', text_safety::normalise("a\u{2028}b\u{2029}c"));
+        $this->assertSame('a b', text_safety::normalise("a\n\n\nb"));
+        $this->assertSame('Forum', text_safety::normalise("\nForum\r\n"));
+        $this->assertTrue(text_safety::is_safe(text_safety::normalise("Save\nand exit")));
+    }
+
     public function test_normalised_quotes_are_safe(): void {
         $this->assertTrue(text_safety::is_safe(text_safety::normalise('Say "hi", don\'t')));
     }

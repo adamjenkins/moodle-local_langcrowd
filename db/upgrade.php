@@ -126,5 +126,14 @@ function xmldb_local_langcrowd_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026092600, 'local', 'langcrowd');
     }
 
+    if ($oldversion < 2026111000) {
+        // Accounts deleted before the user_deleted observer existed left their votes counting
+        // toward the lock threshold and their suggestions in the admin report: remove them.
+        require_once(__DIR__ . '/upgradelib.php');
+        local_langcrowd_upgrade_purge_deleted_users();
+
+        upgrade_plugin_savepoint(true, 2026111000, 'local', 'langcrowd');
+    }
+
     return true;
 }

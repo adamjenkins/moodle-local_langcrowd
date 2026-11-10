@@ -47,14 +47,23 @@ class text_safety {
     protected const UNSAFE_CHARS = ['<', '>', '"', "'", '\\', "\x60"];
 
     /**
-     * Converts straight quotes to typographic ones and trims the text.
+     * Line terminators that end a JavaScript string literal (CR, LF, U+2028, U+2029):
+     * a translation embedded in a quoted JS string would break the page's script.
+     */
+    protected const LINE_BREAK_PATTERN = '/[\r\n\x{2028}\x{2029}]/u';
+
+    /**
+     * Converts straight quotes to typographic ones, collapses line breaks and trims the text.
      *
-     * Apostrophes become U+2019; double quotes alternate between U+201C and U+201D.
+     * Apostrophes become U+2019; double quotes alternate between U+201C and U+201D. A line
+     * break (CR, LF, U+2028, U+2029) and the spaces around it become one space, since a
+     * language string served inside a JavaScript literal cannot contain one.
      *
      * @param string $text
      * @return string
      */
     public static function normalise(string $text): string {
+        $text = (string)preg_replace('/[ \t]*[\r\n\x{2028}\x{2029}]+[ \t]*/u', ' ', $text);
         $text = str_replace("'", "\u{2019}", trim($text));
         $open = true;
         return preg_replace_callback('/"/', function () use (&$open) {
@@ -78,6 +87,11 @@ class text_safety {
             if (strpos($text, $char) !== false) {
                 return false;
             }
+        }
+        // A line break ends a JavaScript string literal; preg_match() also returns false
+        // (refused here) on invalid UTF-8.
+        if (preg_match(self::LINE_BREAK_PATTERN, $text) !== 0) {
+            return false;
         }
         // A character reference is decoded before an event-handler attribute's JavaScript
         // runs (&#39; becomes a quote there), and browsers still decode legacy named
